@@ -1,8 +1,9 @@
 /**
  * The aggregated-search card's controls: the shipped ValueField and
  * CheckboxField (faithful local copies), a select for the provider kind, and
- * the key-chip list with its add-key form — all styled on the same tokens
- * and rhythm as the built-in plugin-configuration fields.
+ * the per-entry API-key editor (one fixed credential per provider; its keys
+ * staged as masked, closable tags in storage order) — all styled on the same
+ * tokens and rhythm as the built-in plugin-configuration fields.
  *
  * @module dsh-web-search-aggregation/client/fields
  */
@@ -127,107 +128,122 @@ export function SelectField(props: {
   )
 }
 
-/** One key chip as the entry renders it. */
-export interface KeyChipView {
+/** The per-entry API-key control's view: one fixed credential per provider. */
+export interface KeysFieldView {
+  /** The kind's fixed credential reference (`TAVILY_API_KEY`, …). */
   ref: string
-  configured: boolean | undefined
+  /** The staged keys as masked tags, in storage order. */
+  tags: string[]
+  /** Whether a save would write the credential. */
   staged: boolean
+  /** Whether any layer supplies a value for the reference. */
+  configured: boolean | undefined
 }
 
-/** The key chips of one entry plus the remove control per chip. */
-export function KeyChips(props: {
-  chips: readonly KeyChipView[]
+/**
+ * One entry's API-key editor: the kind's single fixed credential (shown as
+ * a ref badge with its presence), the staged keys as masked closable tags,
+ * and an input with a `+` button (Enter works too). Tag order is the order
+ * a save writes and the runtime reads. The credentials API is value-free on
+ * read, so stored literals are never echoed back — a save REPLACES the whole
+ * stored value, and closing every tag makes it clear the credential.
+ */
+export function KeysField(props: {
+  view: KeysFieldView
+  label: string
+  placeholder: string
+  hint: string
   configuredLabel: string
   unsetLabel: string
   stagedLabel: string
+  addLabel: string
   removeLabel: string
   disabled: boolean
-  onRemove: (ref: string) => void
+  onAdd: (literal: string) => void
+  onRemove: (keyIndex: number) => void
+  onReset: () => void
 }) {
-  if (props.chips.length === 0) return null
-  return (
-    <div className={css.chips}>
-      {props.chips.map(chip => (
-        <span key={chip.ref} className={css.chip}>
-          <span>{chip.ref}</span>
-          <span className={css.chipState}>
-            {chip.staged
-              ? props.stagedLabel
-              : chip.configured === undefined
-                ? ''
-                : chip.configured ? props.configuredLabel : props.unsetLabel}
-          </span>
-          <button
-            type="button"
-            className={css.chipRemove}
-            aria-label={`${props.removeLabel}: ${chip.ref}`}
-            disabled={props.disabled}
-            onClick={() => { props.onRemove(chip.ref) }}
-          >
-            ×
-          </button>
-        </span>
-      ))}
-    </div>
-  )
-}
-
-/** The add-key control: reference name plus optional literal, applied on click. */
-export function AddKeyForm(props: {
-  refLabel: string
-  keyLabel: string
-  applyLabel: string
-  keyPlaceholder: string
-  disabled: boolean
-  suggestedRef: string
-  onApply: (ref: string, literal: string) => void
-}) {
-  const [ref, setRef] = useState('')
-  const [literal, setLiteral] = useState('')
-  const [open, setOpen] = useState(false)
-  if (!open) {
-    return (
-      <button type="button" className={css.ghostButton} disabled={props.disabled} onClick={() => { setOpen(true) }}>
-        {props.applyLabel}
-      </button>
-    )
+  const [text, setText] = useState('')
+  const { view } = props
+  const add = () => {
+    if (text.trim().length === 0) return
+    props.onAdd(text)
+    setText('')
   }
-  const refValue = ref.length > 0 ? ref : props.suggestedRef
-  const invalid = !/^[A-Za-z_][A-Za-z0-9_]*$/.test(refValue.trim())
   return (
-    <div className={css.keyForm}>
-      <input
-        className={invalid ? `${css.keyFormInput} ${css.keyFormInputInvalid}` : css.keyFormInput}
-        type="text"
-        aria-label={props.refLabel}
-        placeholder={props.suggestedRef}
-        value={ref}
-        spellCheck={false}
-        disabled={props.disabled}
-        onChange={(event) => { setRef(event.target.value) }}
-      />
-      <input
-        className={css.keyFormInput}
-        type="password"
-        aria-label={props.keyLabel}
-        placeholder={props.keyPlaceholder}
-        value={literal}
-        disabled={props.disabled}
-        onChange={(event) => { setLiteral(event.target.value) }}
-      />
-      <button
-        type="button"
-        className={css.ghostButton}
-        disabled={props.disabled || invalid || refValue.trim().length === 0}
-        onClick={() => {
-          props.onApply(refValue.trim(), literal)
-          setRef('')
-          setLiteral('')
-          setOpen(false)
-        }}
-      >
-        {props.applyLabel}
-      </button>
+    <div className={css.fieldEmbedded}>
+      <div className={css.head}>
+        <label className={css.label}>{props.label}</label>
+        <span className={css.badges}>
+          <span className={css.badge}>
+            <code>{view.ref}</code>
+            {' '}
+            {view.staged
+              ? props.stagedLabel
+              : view.configured === undefined
+                ? ''
+                : view.configured ? props.configuredLabel : props.unsetLabel}
+          </span>
+          {view.staged
+            ? (
+              <button
+                type="button"
+                className={css.reset}
+                disabled={props.disabled}
+                onClick={props.onReset}
+              >
+                ×
+              </button>
+            )
+            : null}
+        </span>
+      </div>
+      {view.tags.length === 0 ? null : (
+        <div className={css.chips}>
+          {view.tags.map((masked, keyIndex) => (
+            <span key={String(keyIndex)} className={css.chip}>
+              <span className={css.chipKey}>{masked}</span>
+              <button
+                type="button"
+                className={css.chipRemove}
+                aria-label={`${props.removeLabel} ${String(keyIndex + 1)}`}
+                disabled={props.disabled}
+                onClick={() => { props.onRemove(keyIndex) }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className={css.keyAddRow}>
+        <input
+          className={css.keyFormInput}
+          type="password"
+          placeholder={props.placeholder}
+          value={text}
+          disabled={props.disabled}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(event) => { setText(event.target.value) }}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return
+            event.preventDefault()
+            add()
+          }}
+        />
+        <button
+          type="button"
+          className={css.ghostButton}
+          aria-label={props.addLabel}
+          title={props.addLabel}
+          disabled={props.disabled || text.trim().length === 0}
+          onClick={add}
+        >
+          +
+        </button>
+      </div>
+      <p className={css.hint}>{props.hint}</p>
     </div>
   )
 }

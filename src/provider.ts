@@ -1,10 +1,11 @@
 /**
  * `AggregatedSearchProvider`: one `WebSearchProvider` whose backend is a
  * prioritized queue of upstream entries. Per request it walks enabled entries
- * in configured order; within an entry it walks the resolved keys starting at
- * a rotating cursor; the first attempt that returns wins and every failure is
- * recorded, so an all-failed call can report each attempt. Caller cancellation
- * stops the walk immediately; the per-attempt timeout bounds one hung upstream.
+ * in configured order; within an entry it walks the keys parsed from the
+ * kind's single credential (a `,`-joined pool) starting at a rotating cursor;
+ * the first attempt that returns wins and every failure is recorded, so an
+ * all-failed call can report each attempt. Caller cancellation stops the walk
+ * immediately; the per-attempt timeout bounds one hung upstream.
  *
  * @module dsh-web-search-aggregation/provider
  */
@@ -12,14 +13,16 @@
 import { WebError } from '@deepseek-ai/dsh-web'
 import type { WebSearchProvider, WebSearchRequest, WebSearchResult } from '@deepseek-ai/dsh-web'
 import { ADAPTERS } from './adapters/index.ts'
+import { DEFAULT_KEY_REF } from './config.ts'
+import { keyRefLabel, parseApiKeys } from './keys.ts'
 import type { AggregatedSearchConfig, AttemptFailure, QueueEntry } from './types.ts'
 
 /** Stable id this provider registers under. */
 export const AGGREGATED_PROVIDER_ID = 'aggregated'
 
-/** One resolved key of an entry, addressed by its credential reference. */
+/** One resolved key of an entry: the literal plus its display reference. */
 interface ResolvedKey {
-  /** Credential reference the value came from. */
+  /** Display reference for logs and failures: `REF`, or `REF#N` in a multi-key pool. */
   ref: string
   /** The secret literal; never logged and never put in an {@link AttemptFailure}. */
   value: string | undefined
@@ -52,9 +55,9 @@ export class AggregatedSearchProvider implements WebSearchProvider {
   readonly id = AGGREGATED_PROVIDER_ID
 
   /**
-   * Rotation cursors keyed by entry signature (kind + endpoint + refs): the
+   * Rotation cursors keyed by entry signature (kind + endpoint): the
    * resolved-key index the next request for that entry starts at. A signature
-   * change (edited refs, endpoint) intentionally resets the rotation.
+   * change (edited endpoint) intentionally resets the rotation.
    */
   private readonly cursors = new Map<string, number>()
 
@@ -92,16 +95,16 @@ export class AggregatedSearchProvider implements WebSearchProvider {
       const keys = await this.resolveKeys(entry, position, failures)
       const attempts = keys.length > 0
         ? keys
-        // An entry that names no refs (or whose refs all failed to resolve —
-        // `resolveKeys` already recorded those) still gets one anonymous
-        // attempt when the upstream allows it, mirroring AnySearch semantics.
+        // An entry whose credential resolves to nothing (`resolveKeys`
+        // already recorded that) still gets one anonymous attempt when the
+        // upstream allows it, mirroring AnySearch semantics.
         : adapter.anonymousOk ? [{ ref: 'anonymous', value: undefined }] : []
       if (attempts.length === 0) {
         failures.push({
           position,
           kind: entry.kind,
           keyRef: 'none',
-          reason: 'no usable API key (refs empty or unresolved, and the API requires a key)',
+          reason: 'no usable API key (credential empty or unresolved, and the API requires a key)',
         })
         continue
       }
@@ -129,38 +132,37 @@ export class AggregatedSearchProvider implements WebSearchProvider {
   }
 
   /**
-   * Resolve an entry's key list, recording one failure per ref that resolves
-   * to nothing (visibility for the all-failed summary; the entry may still
-   * proceed anonymously when the adapter allows it).
+   * Resolve an entry's key pool: read the kind's single fixed credential and
+   * split its `,`-joined value into key literals. A missing/empty credential
+   * records one failure (visibility for the all-failed summary; the entry
+   * may still proceed anonymously when the adapter allows it).
    */
   private async resolveKeys(entry: QueueEntry, position: number, failures: AttemptFailure[]): Promise<ResolvedKey[]> {
-    const keys: ResolvedKey[] = []
-    for (const ref of entry.apiKeyRefs) {
-      let value: string | undefined
-      try {
-        value = await this.options.resolveKey(ref)
-      } catch (error: unknown) {
-        failures.push({
-          position,
-          kind: entry.kind,
-          keyRef: ref,
-          reason: `credential resolution failed: ${String(error instanceof Error ? error.message : error)}`,
-        })
-        continue
-      }
-      if (value !== undefined && value.length > 0) {
-        keys.push({ ref, value })
-      } else {
-        this.options.logger.info('aggregated search: credential %s resolved to nothing', ref)
-        failures.push({
-          position,
-          kind: entry.kind,
-          keyRef: ref,
-          reason: 'credential resolved to nothing',
-        })
-      }
+    const ref = DEFAULT_KEY_REF[entry.kind]
+    let value: string | undefined
+    try {
+      value = await this.options.resolveKey(ref)
+    } catch (error: unknown) {
+      failures.push({
+        position,
+        kind: entry.kind,
+        keyRef: ref,
+        reason: `credential resolution failed: ${String(error instanceof Error ? error.message : error)}`,
+      })
+      return []
     }
-    return keys
+    const literals = value === undefined ? [] : parseApiKeys(value)
+    if (literals.length === 0) {
+      this.options.logger.info('aggregated search: credential %s resolved to nothing', ref)
+      failures.push({
+        position,
+        kind: entry.kind,
+        keyRef: ref,
+        reason: 'credential resolved to nothing',
+      })
+      return []
+    }
+    return literals.map((literal, index) => ({ ref: keyRefLabel(ref, index, literals.length), value: literal }))
   }
 
   /**
@@ -226,7 +228,7 @@ export class AggregatedSearchProvider implements WebSearchProvider {
  * Reorder one key list so it starts at `cursor` and wraps once — the
  * round-robin attempt order for one entry.
  *
- * @param keys - the resolved keys in configured order.
+ * @param keys - the resolved keys in stored order.
  * @param cursor - the rotation start index.
  * @returns the keys in attempt order.
  */
@@ -236,9 +238,9 @@ export function rotation<T>(items: readonly T[], cursor: number): T[] {
   return [...items.slice(start), ...items.slice(0, start)]
 }
 
-/** The stable identity of one queue entry: kind, endpoint, and key refs. */
+/** The stable identity of one queue entry: kind and endpoint. */
 function signatureOf(entry: QueueEntry): string {
-  return [entry.kind, entry.baseURL ?? '', entry.apiKeyRefs.join(',')].join('|')
+  return [entry.kind, entry.baseURL ?? ''].join('|')
 }
 
 /** One failure as the summary renders it. */

@@ -53,11 +53,10 @@ export class FakeScope {
   }
 }
 
-/** The credentials wire face as the controller uses it. */
 /** The credentials wire face as the controller uses it (rpc plumbing faked as never). */
-export function fakeCredentials(): Pick<IApiClient, 'credentials'> {
-  const set = vi.fn(async (_request: { ref: string, value: string }) => ({} as never))
-  const unset = vi.fn(async (_request: { ref: string }) => ({} as never))
+export function fakeCredentials(overrides: Partial<Pick<IApiClient['credentials'], 'set' | 'unset'>> = {}): Pick<IApiClient, 'credentials'> {
+  const set = overrides.set ?? vi.fn(async (_request: { ref: string, value: string }) => ({} as never))
+  const unset = overrides.unset ?? vi.fn(async (_request: { ref: string }) => ({} as never))
   const describe = vi.fn(async (request: { refs: string[] }) => ({
     rpcId: 'test' as never,
     result: {
@@ -74,8 +73,8 @@ export function defaultSection(): ScopeOptions {
   return {
     base: {
       providers: [
-        { kind: 'anysearch', enabled: true, apiKeyRefs: ['ANYSEARCH_API_KEY'] },
-        { kind: 'tavily', enabled: true, apiKeyRefs: ['TAVILY_API_KEY'] },
+        { kind: 'anysearch', enabled: true },
+        { kind: 'tavily', enabled: true },
       ],
       attemptTimeoutMs: 15000,
     },
@@ -89,7 +88,7 @@ async function settled(): Promise<void> {
 }
 
 describe('AggregatedCardController', () => {
-  it('projects the committed queue with position and kinds', async () => {
+  it('projects the committed queue with position, kinds, and one credential per kind', async () => {
     const scope = new FakeScope(defaultSection())
     const controller = new AggregatedCardController(scope as never, fakeCredentials())
     await settled()
@@ -97,31 +96,177 @@ describe('AggregatedCardController', () => {
     expect(state.available).toBe(true)
     expect(state.entries.map(entry => entry.kind)).toEqual(['anysearch', 'tavily'])
     expect(state.entries[0]?.position).toBe(1)
+    expect(state.entries[0]?.keys.ref).toBe('ANYSEARCH_API_KEY')
+    expect(state.entries[1]?.keys.ref).toBe('TAVILY_API_KEY')
+    expect(state.entries[0]?.keys.staged).toBe(false)
     expect(state.timeout.text).toBe('15000')
     expect(state.dirty).toBe(false)
   })
 
-  it('stages a key: chip appears, dirty flips, save writes the literal through credentials then the queue', async () => {
+  it('stages keys as an ordered tag list: save writes them joined, in order, through credentials', async () => {
     const scope = new FakeScope(defaultSection())
     const api = fakeCredentials()
     const controller = new AggregatedCardController(scope as never, api)
     await settled()
     const face = controller.inject()
-    face.stageKey(1, 'TAVILY_API_KEY_2', 'tvly-literal')
+    face.addKey(1, 'tvly-a')
+    face.addKey(1, ' tvly-b ')
     let state = face.hooks.aggregatedCard.getSnapshot()
     expect(state.dirty).toBe(true)
-    expect(state.entries[1]?.keys.map(key => key.ref)).toContain('TAVILY_API_KEY_2')
+    expect(state.entries[1]?.keys.staged).toBe(true)
+    expect(state.entries[1]?.keys.tags).toHaveLength(2)
 
     face.save()
     await settled()
-    // The literal went through the credentials domain, keyed by its ref.
-    expect(api.credentials.set).toHaveBeenCalledWith({ ref: 'TAVILY_API_KEY_2', value: 'tvly-literal' })
-    // And the queue landed in the user layer with the new ref appended.
+    // The tag order became the comma-joined value, addressed by the kind's
+    // single fixed reference.
+    expect(api.credentials.set).toHaveBeenCalledWith({ ref: 'TAVILY_API_KEY', value: 'tvly-a,tvly-b' })
+    // And the queue landed in the user layer without any credential field on it.
     const user = scope.getSnapshot().user as Record<string, unknown> | undefined
-    const providers = user?.providers as Array<{ apiKeyRefs: string[] }>
-    expect(providers?.[1]?.apiKeyRefs).toEqual(['TAVILY_API_KEY', 'TAVILY_API_KEY_2'])
+    const providers = user?.providers as Array<{ kind: string }>
+    expect(providers).toEqual([
+      { kind: 'anysearch', enabled: true },
+      { kind: 'tavily', enabled: true },
+    ])
     state = face.hooks.aggregatedCard.getSnapshot()
     expect(state.dirty).toBe(false)
+    expect(state.entries[1]?.keys.staged).toBe(false)
+  })
+
+  it('masks each staged tag as head 12 + … + tail 2', async () => {
+    const scope = new FakeScope(defaultSection())
+    const controller = new AggregatedCardController(scope as never, fakeCredentials())
+    await settled()
+    const face = controller.inject()
+    const long = 'tvly-abcdefghijklmnop'
+    const short = 'as-key'
+    face.addKey(0, long)
+    face.addKey(0, short)
+    const tags = face.hooks.aggregatedCard.getSnapshot().entries[0]?.keys.tags
+    expect(tags?.[0]).toBe(`${long.slice(0, 12)}…${long.slice(-2)}`)
+    expect(tags?.[1]).toBe(`…${short.slice(-2)}`)
+  })
+
+  it('appends keys in add order, which is the saved order', async () => {
+    const scope = new FakeScope(defaultSection())
+    const api = fakeCredentials()
+    const controller = new AggregatedCardController(scope as never, api)
+    await settled()
+    const face = controller.inject()
+    face.addKey(1, 'k3')
+    face.addKey(1, 'k1')
+    face.addKey(1, 'k2')
+    face.save()
+    await settled()
+    expect(api.credentials.set).toHaveBeenCalledWith({ ref: 'TAVILY_API_KEY', value: 'k3,k1,k2' })
+  })
+
+  it('splits a pasted comma-joined literal into several keys and drops duplicates', async () => {
+    const scope = new FakeScope(defaultSection())
+    const api = fakeCredentials()
+    const controller = new AggregatedCardController(scope as never, api)
+    await settled()
+    const face = controller.inject()
+    face.addKey(1, 'a, b ,a,,')
+    face.save()
+    await settled()
+    expect(api.credentials.set).toHaveBeenCalledWith({ ref: 'TAVILY_API_KEY', value: 'a,b' })
+  })
+
+  it('removes one staged key by tag position; removing the last stages a clear', async () => {
+    const scope = new FakeScope(defaultSection())
+    const api = fakeCredentials()
+    const controller = new AggregatedCardController(scope as never, api)
+    await settled()
+    const face = controller.inject()
+    face.addKey(1, 'a')
+    face.addKey(1, 'b')
+    face.addKey(1, 'c')
+    face.removeKey(1, 1)
+    let state = face.hooks.aggregatedCard.getSnapshot()
+    expect(state.entries[1]?.keys.tags).toHaveLength(2)
+    face.save()
+    await settled()
+    expect(api.credentials.set).toHaveBeenCalledWith({ ref: 'TAVILY_API_KEY', value: 'a,c' })
+
+    face.removeKey(1, 0)
+    face.removeKey(1, 0)
+    face.save()
+    await settled()
+    // The successful save cleared the draft; stage one key again, close it,
+    // and saving an empty tag list clears the credential.
+    expect(api.credentials.unset).not.toHaveBeenCalled()
+    face.addKey(1, 'x')
+    face.removeKey(1, 0)
+    const cleared = face.hooks.aggregatedCard.getSnapshot()
+    expect(cleared.entries[1]?.keys.staged).toBe(true)
+    expect(cleared.entries[1]?.keys.tags).toHaveLength(0)
+    face.save()
+    await settled()
+    expect(api.credentials.unset).toHaveBeenCalledWith({ ref: 'TAVILY_API_KEY' })
+  })
+
+  it('stores a single key bare, with no separator', async () => {
+    const scope = new FakeScope(defaultSection())
+    const api = fakeCredentials()
+    const controller = new AggregatedCardController(scope as never, api)
+    await settled()
+    const face = controller.inject()
+    face.addKey(1, 'tvly-only')
+    face.save()
+    await settled()
+    expect(api.credentials.set).toHaveBeenCalledWith({ ref: 'TAVILY_API_KEY', value: 'tvly-only' })
+  })
+
+  it('drops the staged key list without touching the credential on reset', async () => {
+    const scope = new FakeScope(defaultSection())
+    const api = fakeCredentials()
+    const controller = new AggregatedCardController(scope as never, api)
+    await settled()
+    const face = controller.inject()
+    face.addKey(0, 'as-1')
+    face.addKey(0, 'as-2')
+    expect(face.hooks.aggregatedCard.getSnapshot().dirty).toBe(true)
+    face.resetKeys(0)
+    const state = face.hooks.aggregatedCard.getSnapshot()
+    expect(state.entries[0]?.keys.staged).toBe(false)
+    expect(state.entries[0]?.keys.tags).toHaveLength(0)
+    expect(state.dirty).toBe(false)
+  })
+
+  it('refuses to queue a provider kind twice', async () => {
+    const scope = new FakeScope(defaultSection())
+    const api = fakeCredentials()
+    const controller = new AggregatedCardController(scope as never, api)
+    await settled()
+    const face = controller.inject()
+    face.addEntry('tavily')
+    expect(face.hooks.aggregatedCard.getSnapshot().entries).toHaveLength(2)
+    expect(face.hooks.aggregatedCard.getSnapshot().dirty).toBe(false)
+    face.addEntry('tinyfish')
+    expect(face.hooks.aggregatedCard.getSnapshot().entries.map(entry => entry.kind))
+      .toEqual(['anysearch', 'tavily', 'tinyfish'])
+    // Changing an entry to another entry's kind is refused too.
+    face.setKind(2, 'tavily')
+    expect(face.hooks.aggregatedCard.getSnapshot().entries[2]?.kind).toBe('tinyfish')
+    // …but moving to a kind no other entry holds still works.
+    face.removeEntry(0)
+    face.setKind(1, 'anysearch')
+    expect(face.hooks.aggregatedCard.getSnapshot().entries.map(entry => entry.kind))
+      .toEqual(['tavily', 'anysearch'])
+  })
+
+  it('blocks saving on a hand-edited duplicate provider kind', async () => {
+    const duped = new FakeScope({
+      base: { providers: [{ kind: 'tavily', enabled: true }, { kind: 'tavily', enabled: false }], attemptTimeoutMs: 15000 },
+    })
+    const api = fakeCredentials()
+    const controller = new AggregatedCardController(duped as never, api)
+    await settled()
+    const state = controller.inject().hooks.aggregatedCard.getSnapshot()
+    expect(state.entries[0]?.invalidReason).toBeUndefined()
+    expect(state.entries[1]?.invalidReason).toBe('duplicate-kind')
+    expect(state.invalid).toBe(true)
   })
 
   it('reorders, disables, and removes entries as staged drafts', async () => {
@@ -138,40 +283,6 @@ describe('AggregatedCardController', () => {
     expect(face.hooks.aggregatedCard.getSnapshot().entries.map(entry => entry.kind)).toEqual(['anysearch'])
     face.discard()
     expect(face.hooks.aggregatedCard.getSnapshot().entries.map(entry => entry.kind)).toEqual(['anysearch', 'tavily'])
-  })
-
-  it('blocks saving on an invalid credential reference and reports why', async () => {
-    const scope = new FakeScope(defaultSection())
-    const controller = new AggregatedCardController(scope as never, fakeCredentials())
-    await settled()
-    const face = controller.inject()
-    face.stageKey(0, '1BAD-REF', 'lit')
-    const state = face.hooks.aggregatedCard.getSnapshot()
-    expect(state.invalid).toBe(true)
-    expect(state.entries[0]?.invalidReason).toBe('invalid-reference')
-  })
-
-  it('blocks saving on a duplicate credential reference within one entry', async () => {
-    // re-staging an existing reference replaces its literal rather than duplicating it…
-    const scope = new FakeScope(defaultSection())
-    const controller = new AggregatedCardController(scope as never, fakeCredentials())
-    await settled()
-    const face = controller.inject()
-    face.stageKey(0, 'ANYSEARCH_API_KEY', 'x')
-    face.stageKey(0, 'ANYSEARCH_API_KEY', 'y')
-    let state = face.hooks.aggregatedCard.getSnapshot()
-    expect(state.entries[0]?.keys.map(key => key.ref)).toEqual(['ANYSEARCH_API_KEY'])
-    expect(state.entries[0]?.keys[0]?.staged).toBe(true)
-    expect(state.entries[0]?.invalidReason).toBeUndefined()
-    // …but a hand-edited section carrying a duplicate is flagged and blocks saving.
-    const duped = new FakeScope({
-      base: { providers: [{ kind: 'anysearch', enabled: true, apiKeyRefs: ['D', 'D'] }], attemptTimeoutMs: 15000 },
-    })
-    const dupedController = new AggregatedCardController(duped as never, fakeCredentials())
-    await settled()
-    state = dupedController.inject().hooks.aggregatedCard.getSnapshot()
-    expect(state.entries[0]?.invalidReason).toBe('duplicate-reference')
-    expect(state.invalid).toBe(true)
   })
 
   it('stages and saves the timeout, and a reset un-inherits it', async () => {
@@ -198,7 +309,7 @@ describe('AggregatedCardController', () => {
   })
 
   it('stages a queue reset: seeds from the base layer and un-inherits on save', async () => {
-    const userQueue = [{ kind: 'tinyfish' as const, enabled: true, apiKeyRefs: ['T'], baseURL: 'https://proxy.test' }]
+    const userQueue = [{ kind: 'tinyfish' as const, enabled: true, baseURL: 'https://proxy.test' }]
     const scope = new FakeScope({ ...defaultSection(), user: { providers: userQueue } })
     const controller = new AggregatedCardController(scope as never, fakeCredentials())
     await settled()
@@ -224,11 +335,26 @@ describe('AggregatedCardController', () => {
     await settled()
     const state = controller.inject().hooks.aggregatedCard.getSnapshot()
     // fakeCredentials marks refs containing 'OK' configured.
-    expect(state.entries[0]?.keys[0]?.configured).toBe(false)
-    expect(state.entries[0]?.keys[0]?.ref).toBe('ANYSEARCH_API_KEY')
+    expect(state.entries[0]?.keys.configured).toBe(false)
+    expect(state.entries[0]?.keys.ref).toBe('ANYSEARCH_API_KEY')
   })
 
-  it('keeps drafts when a save fails to land', async () => {
+  it('keeps drafts when a credentials write fails to land', async () => {
+    const scope = new FakeScope(defaultSection())
+    const api = fakeCredentials({ set: vi.fn(async () => { throw new Error('write refused') }) })
+    const controller = new AggregatedCardController(scope as never, api)
+    await settled()
+    const face = controller.inject()
+    face.addKey(1, 'tvly-a')
+    face.save()
+    await settled()
+    const state = face.hooks.aggregatedCard.getSnapshot()
+    expect(state.failed).toBe(true)
+    expect(state.dirty).toBe(true)
+    expect(state.entries[1]?.keys.staged).toBe(true)
+  })
+
+  it('keeps drafts when a section write fails to land', async () => {
     const scope = new FakeScope(defaultSection())
     scope.set = async () => { throw new Error('write refused') }
     const controller = new AggregatedCardController(scope as never, fakeCredentials())

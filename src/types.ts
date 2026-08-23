@@ -11,7 +11,8 @@ export type SearchProviderKind = 'anysearch' | 'tinyfish' | 'tavily'
 
 /**
  * One entry of the priority queue. Order inside `Config.providers` IS the
- * priority: index 0 serves first, later entries are fallbacks.
+ * priority: index 0 serves first, later entries are fallbacks. A kind can
+ * appear at most once — normalization keeps the first entry per kind.
  */
 export interface QueueEntry {
   /** Which upstream search API this entry drives. */
@@ -19,12 +20,15 @@ export interface QueueEntry {
   /** False parks the entry without deleting it; it is skipped entirely. */
   enabled: boolean
   /**
-   * Credential references (env-var-style names) tried in rotation for this
-   * entry. `[]` means: anonymous access for `anysearch`, unusable for the
-   * key-required kinds (the entry fails its attempts and the queue moves on).
+   * Endpoint base overriding the adapter's default; empty/absent = default.
+   *
+   * The entry's API keys are NOT named here: every kind reads exactly one
+   * fixed credential, `DEFAULT_KEY_REF[kind]` (e.g. `TAVILY_API_KEY`), whose
+   * value holds all of the provider's keys joined by `,` (a single key is
+   * stored bare, no separator). Unset/empty means: anonymous access for
+   * `anysearch`, unusable for the key-required kinds (the entry fails its
+   * attempts and the queue moves on).
    */
-  apiKeyRefs: string[]
-  /** Endpoint base overriding the adapter's default; empty/absent = default. */
   baseURL?: string
 }
 
@@ -45,7 +49,10 @@ export interface AttemptFailure {
   position: number
   /** Provider kind of the entry. */
   kind: SearchProviderKind
-  /** Credential reference used, or `'anonymous'` when none. */
+  /**
+   * Credential reference used — the kind's fixed name, with a `#N` suffix
+   * (1-based) when the pool holds several keys — or `'anonymous'` when none.
+   */
   keyRef: string
   /** Human-readable failure reason, already free of secret material. */
   reason: string

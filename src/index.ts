@@ -20,13 +20,14 @@ import type { ConfigInput } from './config.ts'
 import type { AggregatedSearchConfig } from './types.ts'
 import { AggregatedSearchProvider, AGGREGATED_PROVIDER_ID } from './provider.ts'
 
-export { Config, DEFAULT_QUEUE, resolveConfig, suggestKeyRef } from './config.ts'
+export { Config, DEFAULT_QUEUE, resolveConfig } from './config.ts'
 export {
   DEFAULT_ATTEMPT_TIMEOUT_MS,
   DEFAULT_KEY_REF,
   MAX_ATTEMPT_TIMEOUT_MS,
   MIN_ATTEMPT_TIMEOUT_MS,
 } from './config.ts'
+export { formatApiKeys, keyRefLabel, maskApiKey, parseApiKeys } from './keys.ts'
 export type {
   AggregatedSearchConfig,
   AttemptFailure,

@@ -1,8 +1,10 @@
 /**
  * The aggregated-search plugin-configuration card: the prioritized provider
- * queue (one entry block per provider — kind, enabled, keys, endpoint), the
- * per-attempt timeout, and the queue-level reset — staged and saved through
- * the controller like the built-in plugin cards.
+ * queue (one entry block per provider — kind, enabled, the single API-key
+ * credential, endpoint), the per-attempt timeout, and the queue-level reset —
+ * staged and saved through the controller like the built-in plugin cards.
+ * Each provider kind can be queued once; its one credential holds all its
+ * keys joined by `,`.
  *
  * @module dsh-web-search-aggregation/client/card
  */
@@ -10,9 +12,9 @@
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import { PluginCard } from './PluginCard.tsx'
-import { AddKeyForm, CheckboxField, KeyChips, SectionHead, SelectField, ValueField } from './fields.tsx'
+import { CheckboxField, KeysField, SectionHead, SelectField, ValueField } from './fields.tsx'
 import type { AggregatedCardFace, AggregatedCardState, EntryView, ProviderKind } from './controller.ts'
-import { PROVIDER_KINDS } from './controller.ts'
+import { KIND_CREDENTIAL_REF, PROVIDER_KINDS } from './controller.ts'
 import type { AggregationLocaleKey } from './locales.ts'
 import css from './fields.module.css'
 
@@ -29,24 +31,6 @@ const KIND_KEY: Record<ProviderKind, AggregationLocaleKey> = {
   tavily: 'kindTavily',
 }
 
-/** Conventional credential-reference base name for one provider kind. */
-const KIND_REF_BASE: Record<ProviderKind, string> = {
-  anysearch: 'ANYSEARCH_API_KEY',
-  tinyfish: 'TINYFISH_API_KEY',
-  tavily: 'TAVILY_API_KEY',
-}
-
-/** The next free conventional reference name for one entry, against the queue's refs. */
-function suggestedRef(state: AggregatedCardState, kind: ProviderKind): string {
-  const taken = new Set(state.entries.flatMap(entry => entry.keys.map(key => key.ref)))
-  const base = KIND_REF_BASE[kind]
-  if (!taken.has(base)) return base
-  for (let index = 2; ; index++) {
-    const candidate = `${base}_${String(index)}`
-    if (!taken.has(candidate)) return candidate
-  }
-}
-
 /** The card's actions as the entry sub-component consumes them. */
 type CardFaceProps = Omit<AggregatedCardFace, 'hooks'>
 
@@ -54,7 +38,7 @@ type CardFaceProps = Omit<AggregatedCardFace, 'hooks'>
 function EntryBlock(props: {
   t: (key: AggregationLocaleKey) => string
   entry: EntryView
-  suggestedRef: string
+  availableKinds: readonly ProviderKind[]
   total: number
   index: number
   disabled: boolean
@@ -70,7 +54,7 @@ function EntryBlock(props: {
           id={`agg-entry-kind-${String(index)}`}
           label={t('providerKind')}
           value={entry.kind}
-          options={PROVIDER_KINDS.map(kind => ({ value: kind, label: t(KIND_KEY[kind]) }))}
+          options={props.availableKinds.map(kind => ({ value: kind, label: t(KIND_KEY[kind]) }))}
           disabled={disabled}
           onEdit={(value) => { face.setKind(index, value as ProviderKind) }}
         />
@@ -112,31 +96,21 @@ function EntryBlock(props: {
         disabled={disabled}
         onEdit={(checked) => { face.setEnabled(index, checked) }}
       />
-      {entry.invalidReason === undefined ? null : (
-        <p className={css.invalid}>
-          {t(entry.invalidReason === 'duplicate-reference' ? 'duplicateRef' : 'invalidRef')}
-        </p>
-      )}
-      <div>
-        <p className={css.hint}>{t('keysHint')}</p>
-        <KeyChips
-          chips={entry.keys}
-          configuredLabel={t('keyConfigured')}
-          unsetLabel={t('keyUnset')}
-          stagedLabel={t('keyStaged')}
-          removeLabel={t('removeKey')}
-          disabled={disabled}
-          onRemove={(ref) => { face.removeKey(index, ref) }}
-        />
-      </div>
-      <AddKeyForm
-        refLabel={t('keyRefLabel')}
-        keyLabel={t('keyLiteralLabel')}
-        applyLabel={t('addKey')}
-        keyPlaceholder={t('keyLiteralPlaceholder')}
+      {entry.invalidReason === undefined ? null : <p className={css.invalid}>{t('duplicateKind')}</p>}
+      <KeysField
+        view={entry.keys}
+        label={t('keysLabel')}
+        placeholder={t('keysPlaceholder')}
+        hint={t('keysHint')}
+        configuredLabel={t('keyConfigured')}
+        unsetLabel={t('keyUnset')}
+        stagedLabel={t('keyStaged')}
+        addLabel={t('addKey')}
+        removeLabel={t('removeKey')}
         disabled={disabled}
-        suggestedRef={props.suggestedRef}
-        onApply={(ref, literal) => { face.stageKey(index, ref, literal) }}
+        onAdd={(literal) => { face.addKey(index, literal) }}
+        onRemove={(keyIndex) => { face.removeKey(index, keyIndex) }}
+        onReset={() => { face.resetKeys(index) }}
       />
       <div className={css.fieldEmbedded}>
         <div className={css.head}>
@@ -167,6 +141,7 @@ export function AggregatedCard(props: AggregatedCardProps) {
   const { t } = props
   const state = props.useAggregatedCard(snapshot => snapshot)
   const disabled = !state.writable
+  const queuedKinds = new Set(state.entries.map(entry => entry.kind))
   return (
     <PluginCard
       copy={{
@@ -222,7 +197,7 @@ export function AggregatedCard(props: AggregatedCardProps) {
           key={`${String(index)}-${entry.kind}`}
           t={t}
           entry={entry}
-          suggestedRef={suggestedRef(state, entry.kind)}
+          availableKinds={PROVIDER_KINDS.filter(kind => kind === entry.kind || !queuedKinds.has(kind))}
           total={state.entries.length}
           index={index}
           disabled={disabled}
@@ -235,7 +210,8 @@ export function AggregatedCard(props: AggregatedCardProps) {
             key={kind}
             type="button"
             className={css.ghostButton}
-            disabled={disabled}
+            disabled={disabled || queuedKinds.has(kind)}
+            title={queuedKinds.has(kind) ? t('kindAlreadyQueued') : KIND_CREDENTIAL_REF[kind]}
             onClick={() => { props.addEntry(kind) }}
           >
             + {t(KIND_KEY[kind])}

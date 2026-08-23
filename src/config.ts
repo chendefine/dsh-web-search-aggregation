@@ -4,6 +4,11 @@
  * `web-search-aggregation` settings section, so a queue a user writes by
  * hand into `settings.yaml` is validated at the same boundary.
  *
+ * One provider kind appears at most once in the queue (normalization keeps
+ * the first entry per kind), and each kind reads exactly one fixed
+ * credential — `DEFAULT_KEY_REF[kind]` — whose value holds all its API keys
+ * joined by `,` (a single key is stored bare; see `keys.ts`).
+ *
  * @module dsh-web-search-aggregation/config
  */
 
@@ -19,7 +24,10 @@ export const MAX_ATTEMPT_TIMEOUT_MS = 60000
 /** Default per-attempt timeout: leaves room for 3–4 fallbacks inside the tool budget. */
 export const DEFAULT_ATTEMPT_TIMEOUT_MS = 15000
 
-/** Default credential reference per kind — the conventional environment name. */
+/**
+ * The single credential reference each kind reads — the conventional
+ * environment name. Its value is the provider's keys joined by `,`.
+ */
 export const DEFAULT_KEY_REF: Readonly<Record<SearchProviderKind, string>> = {
   anysearch: 'ANYSEARCH_API_KEY',
   tinyfish: 'TINYFISH_API_KEY',
@@ -28,9 +36,9 @@ export const DEFAULT_KEY_REF: Readonly<Record<SearchProviderKind, string>> = {
 
 /** The shipped default queue: AnySearch (anonymous-capable) first, then the key-required kinds. */
 export const DEFAULT_QUEUE: readonly QueueEntry[] = [
-  { kind: 'anysearch', enabled: true, apiKeyRefs: ['ANYSEARCH_API_KEY'] },
-  { kind: 'tavily', enabled: true, apiKeyRefs: ['TAVILY_API_KEY'] },
-  { kind: 'tinyfish', enabled: true, apiKeyRefs: ['TINYFISH_API_KEY'] },
+  { kind: 'anysearch', enabled: true },
+  { kind: 'tavily', enabled: true },
+  { kind: 'tinyfish', enabled: true },
 ]
 
 /** Plugin config (all optional — the schema fills constant defaults). */
@@ -41,42 +49,33 @@ export const Config: z<AggregatedSearchConfig> = z.object({
   providers: z.array(z.object({
     kind: z.union(['anysearch', 'tinyfish', 'tavily'] as const),
     enabled: z.boolean().default(true),
-    apiKeyRefs: z.array(z.string().role('credential-ref')).default([]),
     baseURL: z.string(),
-  })).default(DEFAULT_QUEUE.map(entry => ({ ...entry, apiKeyRefs: [...entry.apiKeyRefs], baseURL: '' }))),
+  })).default(DEFAULT_QUEUE.map(entry => ({ ...entry, baseURL: '' }))),
   attemptTimeoutMs: z.number().step(1).min(MIN_ATTEMPT_TIMEOUT_MS).max(MAX_ATTEMPT_TIMEOUT_MS)
     .default(DEFAULT_ATTEMPT_TIMEOUT_MS),
 })
 
 /**
- * Normalize one queue entry: trim strings, drop empty refs and an empty
- * `baseURL`, and drop duplicate refs (rotation treats the first occurrence
- * as the only one — a duplicate would double-count one key).
+ * Normalize one queue entry: trim the endpoint override and drop it when
+ * empty. (API keys are not part of the entry — the kind's fixed credential
+ * carries them; hand-written `apiKeyRefs` rows are simply ignored.)
  *
  * @param entry - the schema-validated entry.
  * @returns the normalized entry.
  */
 export function normalizeEntry(entry: QueueEntry): QueueEntry {
-  const seen = new Set<string>()
-  const apiKeyRefs: string[] = []
-  for (const raw of entry.apiKeyRefs) {
-    const ref = raw.trim()
-    if (ref.length === 0 || seen.has(ref)) continue
-    seen.add(ref)
-    apiKeyRefs.push(ref)
-  }
   const baseURL = entry.baseURL?.trim()
   return {
     kind: entry.kind,
     enabled: entry.enabled,
-    apiKeyRefs,
     ...baseURL !== undefined && baseURL.length > 0 ? { baseURL } : {},
   }
 }
 
 /**
  * Resolve any accepted config input into the fully-defaulted, normalized
- * form the provider consumes per request.
+ * form the provider consumes per request. Later entries whose kind already
+ * appeared are dropped (one provider can be queued once).
  *
  * @param config - composition entry or settings-section value.
  * @returns the resolved config.
@@ -85,26 +84,15 @@ export function resolveConfig(config: ConfigInput): AggregatedSearchConfig {
   // The input face is Partial by design (composition entries omit fields); the
   // schema's call signature expects the resolved shape, which defaults supply.
   const resolved = Config(config as AggregatedSearchConfig)
-  return {
-    providers: resolved.providers.map(normalizeEntry),
-    attemptTimeoutMs: resolved.attemptTimeoutMs,
+  const seen = new Set<SearchProviderKind>()
+  const providers: QueueEntry[] = []
+  for (const raw of resolved.providers) {
+    if (seen.has(raw.kind)) continue
+    seen.add(raw.kind)
+    providers.push(normalizeEntry(raw))
   }
-}
-
-/**
- * Suggest the next free credential reference for one kind against the refs
- * already in use anywhere in the queue: the conventional name, then `_2`,
- * `_3`, … — used by the settings card's add-key control.
- *
- * @param kind - the provider kind the key belongs to.
- * @param taken - every ref the queue already names.
- * @returns a reference name not present in `taken`.
- */
-export function suggestKeyRef(kind: SearchProviderKind, taken: ReadonlySet<string>): string {
-  const base = DEFAULT_KEY_REF[kind]
-  if (!taken.has(base)) return base
-  for (let index = 2; ; index++) {
-    const candidate = `${base}_${String(index)}`
-    if (!taken.has(candidate)) return candidate
+  return {
+    providers,
+    attemptTimeoutMs: resolved.attemptTimeoutMs,
   }
 }

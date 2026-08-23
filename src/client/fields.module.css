@@ -339,6 +339,20 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* The masked key literal inside one API-key tag (monospace, slightly dim). */
+.chipKey {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* The add-key row: one input plus its trailing "+" button. */
+.keyAddRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .chipConfigured {
   color: var(--dsw-alias-label-secondary);
   font-weight: 500;

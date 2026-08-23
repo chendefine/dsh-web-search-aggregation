@@ -4,17 +4,22 @@
  * the card's slot entry injects.
  *
  * The queue is ONE structured section field (`providers`), staged whole: the
- * draft lives here until the card's save writes it in one `scope.set`. Key
- * literals never enter the section — adding a key stages its literal here and
- * the save writes it through the credentials domain, addressed by the
- * reference the queue names. Presence facts for those references come back
- * through `credentials.describe`, never the values.
+ * draft lives here until the card's save writes it in one `scope.set`. A
+ * provider kind appears at most once, and each entry owns exactly one
+ * credential — the kind's fixed `XXX_API_KEY` reference — whose value holds
+ * all the provider's keys joined by `,`. Keys are added one at a time through
+ * the card's input (+ or Enter); each becomes a masked, closable tag, and the
+ * tag order IS the order a save writes and the runtime reads. Key literals
+ * never enter the section, and the credentials API is value-free on read
+ * (presence facts only), so stored literals are never echoed back — a save
+ * REPLACES the credential's whole value, and removing every tag clears it.
  *
  * @module dsh-web-search-aggregation/client/controller
  */
 
 import type { IApiClient } from '@deepseek-ai/dsh-client-connection/client'
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import { formatApiKeys, maskApiKey, parseApiKeys } from '../keys.ts'
 import type { CardFieldState, CardShell, CredentialBadge, SnapshotStore } from './form.ts'
 
 /**
@@ -29,7 +34,6 @@ export interface AggregatedSettingsSection {
   providers?: Array<{
     kind: 'anysearch' | 'tinyfish' | 'tavily'
     enabled: boolean
-    apiKeyRefs: string[]
     baseURL?: string
   }>
   /** Per-attempt timeout (ms). */
@@ -42,31 +46,32 @@ export const PROVIDER_KINDS = ['anysearch', 'tinyfish', 'tavily'] as const
 /** One provider kind. */
 export type ProviderKind = typeof PROVIDER_KINDS[number]
 
-/** Credential-reference grammar, mirrored from the Host credential seam. */
-const REF_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
+/**
+ * The single credential reference each kind reads (client copy of the Host's
+ * `DEFAULT_KEY_REF`): its value is the provider's keys joined by `,`.
+ */
+export const KIND_CREDENTIAL_REF: Readonly<Record<ProviderKind, string>> = {
+  anysearch: 'ANYSEARCH_API_KEY',
+  tinyfish: 'TINYFISH_API_KEY',
+  tavily: 'TAVILY_API_KEY',
+}
 
 /** Accepted per-attempt timeout range, mirrored from the Host schema. */
 const TIMEOUT_MIN = 1000
 const TIMEOUT_MAX = 60000
 
-/** One key literal staged for one entry; written through credentials on save. */
-interface StagedKey {
-  /** Reference the literal will be stored under. */
-  ref: string
-  /** The staged literal; empty means the reference is registered without a write. */
-  literal: string
-}
-
 /** The editable form of one queue entry while staged. */
 export interface EntryDraft {
   kind: ProviderKind
   enabled: boolean
-  /** References as the queue names them, chips in this order. */
-  apiKeyRefs: string[]
   /** Endpoint override; empty = the adapter default. */
   baseURL: string
-  /** Key literals staged for this entry, keyed by reference. */
-  staged: StagedKey[]
+  /**
+   * The staged key list for the kind's credential, in the exact order a save
+   * writes and the runtime reads, or `undefined` while untouched (the stored
+   * credential stays as-is). `[]` means "clear the stored keys".
+   */
+  keysDraft: string[] | undefined
 }
 
 /** What the card renders for one entry. */
@@ -76,8 +81,17 @@ export interface EntryView {
   kind: ProviderKind
   enabled: boolean
   baseURL: string
-  /** Key chips in queue order, each with its presence facts. */
-  keys: Array<{ ref: string, configured: boolean | undefined, staged: boolean }>
+  /** The entry's one credential control: fixed ref, masked key tags, presence. */
+  keys: {
+    /** The kind's fixed credential reference (`TAVILY_API_KEY`, …). */
+    ref: string
+    /** The staged keys as masked tags, in storage order. */
+    tags: string[]
+    /** Whether a save would write the credential. */
+    staged: boolean
+    /** Whether any layer supplies a value for the reference. */
+    configured: boolean | undefined
+  }
   /** Why this entry blocks saving, when it does. */
   invalidReason: string | undefined
 }
@@ -102,21 +116,24 @@ export interface AggregatedCardActions {
   moveEntry: (index: number, direction: -1 | 1) => void
   /** Remove one entry from the queue. */
   removeEntry: (index: number) => void
-  /** Append one entry of `kind` at the queue's end. */
+  /** Append one entry of `kind` at the queue's end (no-op when already queued). */
   addEntry: (kind: ProviderKind) => void
-  /** Change one entry's provider kind. */
+  /** Change one entry's provider kind (no-op when another entry already uses it). */
   setKind: (index: number, kind: ProviderKind) => void
   /** Toggle one entry's enabled flag. */
   setEnabled: (index: number, enabled: boolean) => void
   /** Stage one entry's endpoint override (empty = default). */
   setBaseURL: (index: number, text: string) => void
   /**
-   * Stage one key for an entry: the reference joins the queue immediately,
-   * and the literal (when non-empty) is written through credentials on save.
+   * Append one key (or a comma-joined batch pasted into the input) to the
+   * entry's staged list: trimmed, split on `,`, empties and keys already
+   * staged dropped. The tag order IS the stored and runtime order.
    */
-  stageKey: (index: number, ref: string, literal: string) => void
-  /** Drop one reference from an entry, staged literal included. */
-  removeKey: (index: number, ref: string) => void
+  addKey: (index: number, literal: string) => void
+  /** Remove the staged key at `keyIndex`; removing the last one stages a clear. */
+  removeKey: (index: number, keyIndex: number) => void
+  /** Drop the entry's staged key list, leaving the stored credential as-is. */
+  resetKeys: (index: number) => void
   /** Clear the queue's user-layer entry, re-inheriting the shipped default. */
   resetQueue: () => void
   /** Write every staged edit, then re-seed from what the Host accepted. */
@@ -152,7 +169,7 @@ export class AggregatedCardController {
 
   /**
    * @param scope - the bound settings scope for the `web-search-aggregation` namespace.
-   * @param api - wire face used for the key literals the queue references.
+   * @param api - wire face used for the key values the entries write.
    */
   constructor(
     private readonly scope: SettingsScope<AggregatedSettingsSection>,
@@ -220,9 +237,14 @@ export class AggregatedCardController {
         this.assign(this.entries.filter((_, position) => position !== index))
       },
       addEntry: (kind) => {
-        this.assign([...this.entries, { kind, enabled: true, apiKeyRefs: [], baseURL: '', staged: [] }])
+        // One provider can be queued once: refuse a kind that is already there.
+        if (this.entries.some(entry => entry.kind === kind)) return
+        this.assign([...this.entries, { kind, enabled: true, baseURL: '', keysDraft: undefined }])
       },
       setKind: (index, kind) => {
+        // Same rule on edit: the kind's single credential would otherwise
+        // be claimed by two entries.
+        if (this.entries.some((entry, position) => position !== index && entry.kind === kind)) return
         this.mutate(index, entry => ({ ...entry, kind }))
       },
       setEnabled: (index, enabled) => {
@@ -231,21 +253,26 @@ export class AggregatedCardController {
       setBaseURL: (index, text) => {
         this.mutate(index, entry => ({ ...entry, baseURL: text }))
       },
-      stageKey: (index, ref, literal) => {
-        const trimmed = ref.trim()
-        if (trimmed.length === 0) return
-        this.mutate(index, entry => ({
-          ...entry,
-          apiKeyRefs: [...entry.apiKeyRefs.filter(existing => existing !== trimmed), trimmed],
-          staged: [...entry.staged.filter(existing => existing.ref !== trimmed), { ref: trimmed, literal }],
-        }))
+      addKey: (index, literal) => {
+        this.mutate(index, entry => {
+          const additions = parseApiKeys(literal)
+          if (additions.length === 0) return entry
+          const next = [...(entry.keysDraft ?? [])]
+          // A duplicate literal would double-count one key in rotation.
+          for (const key of additions) {
+            if (!next.includes(key)) next.push(key)
+          }
+          return { ...entry, keysDraft: next }
+        })
       },
-      removeKey: (index, ref) => {
-        this.mutate(index, entry => ({
-          ...entry,
-          apiKeyRefs: entry.apiKeyRefs.filter(existing => existing !== ref),
-          staged: entry.staged.filter(existing => existing.ref !== ref),
-        }))
+      removeKey: (index, keyIndex) => {
+        this.mutate(index, entry => {
+          if (entry.keysDraft === undefined) return entry
+          return { ...entry, keysDraft: entry.keysDraft.filter((_, position) => position !== keyIndex) }
+        })
+      },
+      resetKeys: (index) => {
+        this.mutate(index, entry => entry.keysDraft === undefined ? entry : { ...entry, keysDraft: undefined })
       },
       resetQueue: () => {
         // Staged: the projection re-seeds from the base layer until saved.
@@ -283,10 +310,10 @@ export class AggregatedCardController {
   }
 
   /**
-   * Write the staged queue: key literals through the credentials domain
-   * first (so references the section is about to name already resolve), then
-   * the section fields, staged resets included. A failure keeps every draft
-   * for correcting.
+   * Write the staged queue: each entry's staged key value through the
+   * credentials domain first (so the reference the section implies already
+   * resolves), then the section fields, staged resets included. A failure
+   * keeps every draft for correcting.
    */
   private async save(): Promise<void> {
     if (this.saving || (!this.dirty() && !this.pendingKeys()) || this.invalidReason() !== undefined) return
@@ -300,21 +327,28 @@ export class AggregatedCardController {
     const stagedTimeoutDraft = this.timeoutDraft
     let landed = true
     for (const entry of this.entries) {
-      for (const staged of entry.staged) {
-        if (staged.literal.length === 0) continue
-        try {
-          await this.api.credentials.set({ ref: staged.ref, value: staged.literal })
-        } catch (_credentialWriteFailure) {
-          // The Host refused (read-only shadow, locked store): surface via
-          // the badge re-read and keep the draft for correcting.
-          landed = false
+      if (entry.keysDraft === undefined) continue
+      const ref = KIND_CREDENTIAL_REF[entry.kind]
+      try {
+        // The staged list is already clean (addKey trims and drops empties);
+        // write it as the whole comma-joined replacement, in tag order.
+        const joined = formatApiKeys(entry.keysDraft)
+        if (joined.length > 0) {
+          await this.api.credentials.set({ ref, value: joined })
+        } else {
+          // Every tag removed: clear the provider's single credential.
+          await this.api.credentials.unset({ ref })
         }
+      } catch (_credentialWriteFailure) {
+        // The Host refused (read-only shadow, locked store): surface via
+        // the badge re-read and keep the draft for correcting.
+        landed = false
       }
     }
     if (landed) {
-      // The literals are durably in the credentials domain; drop them from
+      // The key values are durably in the credentials domain; drop them from
       // the drafts so the card stops reporting a pending write.
-      for (const entry of this.entries) entry.staged = []
+      for (const entry of this.entries) entry.keysDraft = undefined
       if (this.queueReset) {
         try {
           await this.scope.unset('providers')
@@ -378,12 +412,13 @@ export class AggregatedCardController {
     const rows = fromBase
       ? (snapshot.base as AggregatedSettingsSection | undefined)?.providers
       : snapshot.value?.providers
+    // Faithful seeding (duplicates included): a hand-edited duplicate kind is
+    // flagged per entry and blocks saving, mirroring the old duplicate-ref UX.
     return (rows ?? []).map(entry => ({
       kind: entry.kind,
       enabled: entry.enabled,
-      apiKeyRefs: [...entry.apiKeyRefs],
       baseURL: entry.baseURL ?? '',
-      staged: [],
+      keysDraft: undefined,
     }))
   }
 
@@ -406,11 +441,10 @@ export class AggregatedCardController {
     this.assign(next)
   }
 
-  /** The entries as a save writes them: trimmed, defaulted, literal-free. */
+  /** The entries as a save writes them: trimmed, defaulted, credential-free. */
   private committedEntries(): Array<{
     kind: ProviderKind
     enabled: boolean
-    apiKeyRefs: string[]
     baseURL?: string
   }> {
     return this.entries.map(entry => {
@@ -418,7 +452,6 @@ export class AggregatedCardController {
       return {
         kind: entry.kind,
         enabled: entry.enabled,
-        apiKeyRefs: entry.apiKeyRefs.map(ref => ref.trim()).filter(ref => ref.length > 0),
         ...baseURL.length > 0 ? { baseURL } : {},
       }
     })
@@ -447,14 +480,10 @@ export class AggregatedCardController {
   /** The first reason the staged queue blocks a save, or undefined. */
   private invalidReason(): string | undefined {
     if (this.timeoutInvalid()) return 'attemptTimeoutMs'
+    const kinds = new Set<ProviderKind>()
     for (const entry of this.entries) {
-      const refs = entry.apiKeyRefs.map(ref => ref.trim())
-      if (refs.some(ref => ref.length === 0 || !REF_PATTERN.test(ref))) {
-        return `invalid credential reference in ${entry.kind}`
-      }
-      if (new Set(refs).size !== refs.length) {
-        return `duplicate credential reference in ${entry.kind}`
-      }
+      if (kinds.has(entry.kind)) return `duplicate provider kind ${entry.kind}`
+      kinds.add(entry.kind)
     }
     return undefined
   }
@@ -476,18 +505,17 @@ export class AggregatedCardController {
       return {
         kind: entry.kind,
         enabled: entry.enabled,
-        apiKeyRefs: entry.apiKeyRefs.map(ref => ref.trim()).filter(ref => ref.length > 0),
         ...baseURL !== undefined && baseURL.length > 0 ? { baseURL } : {},
       }
     })
   }
 
-  /** Whether any staged entry still holds an unwritten key literal. */
+  /** Whether any staged entry still holds an unwritten key value. */
   private pendingKeys(): boolean {
-    return this.entries.some(entry => entry.staged.some(staged => staged.literal.length > 0))
+    return this.entries.some(entry => entry.keysDraft !== undefined)
   }
 
-  /** The controller's projection; `dirty` also honors staged literals. */
+  /** The controller's projection; `dirty` also honors staged key values. */
   private projection(): AggregatedCardState {
     const snapshot = this.scope.getSnapshot()
     const invalid = this.invalidReason()
@@ -516,12 +544,15 @@ export class AggregatedCardController {
         kind: entry.kind,
         enabled: entry.enabled,
         baseURL: entry.baseURL,
-        keys: entry.apiKeyRefs.map(ref => ({
-          ref,
-          configured: this.credentials.get(ref.trim())?.configured,
-          staged: entry.staged.some(staged => staged.ref === ref && staged.literal.length > 0),
-        })),
-        invalidReason: entryInvalidReason(entry),
+        keys: {
+          ref: KIND_CREDENTIAL_REF[entry.kind],
+          tags: (entry.keysDraft ?? []).map(key => maskApiKey(key)),
+          staged: entry.keysDraft !== undefined,
+          configured: this.credentials.get(KIND_CREDENTIAL_REF[entry.kind])?.configured,
+        },
+        invalidReason: this.entries.some((other, position) => position < index && other.kind === entry.kind)
+          ? 'duplicate-kind'
+          : undefined,
       })),
       queueOverridden: this.queueReset
         || Object.hasOwn((snapshot.user ?? {}) as Record<string, unknown>, 'providers'),
@@ -535,8 +566,8 @@ export class AggregatedCardController {
    */
   private async readCredentials(): Promise<void> {
     const refs = [...new Set([
-      ...this.committedEntries().flatMap(entry => entry.apiKeyRefs),
-      ...(this.section().providers ?? []).flatMap(entry => entry.apiKeyRefs),
+      ...this.entries.map(entry => KIND_CREDENTIAL_REF[entry.kind]),
+      ...(this.section().providers ?? []).map(entry => KIND_CREDENTIAL_REF[entry.kind]),
     ])]
     if (refs.length === 0) return
     let response: Awaited<ReturnType<IApiClient['credentials']['describe']>>
@@ -556,16 +587,8 @@ export class AggregatedCardController {
     this.publish()
   }
 
-  /** Notify every bound store. */
+  /** Notify every bound stores. */
   private publish(): void {
     for (const listener of this.listeners) listener()
   }
-}
-
-/** The first reason one entry blocks a save, when it does. */
-function entryInvalidReason(entry: EntryDraft): string | undefined {
-  const refs = entry.apiKeyRefs.map(ref => ref.trim())
-  if (refs.some(ref => ref.length === 0 || !REF_PATTERN.test(ref))) return 'invalid-reference'
-  if (new Set(refs).size !== refs.length) return 'duplicate-reference'
-  return undefined
 }
