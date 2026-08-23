@@ -28,10 +28,14 @@
     "cordis.patch.yml",
     "dsh.plugin.json",
     "README.md",
-    "README.zh-CN.md"
+    "README.zh-CN.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rm -rf lib && tsc -p tsconfig.build.json --emitDeclarationOnly && tsdown",
+    "prepare": "pnpm run build",
+    "prepublishOnly": "pnpm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -56,10 +60,23 @@
     "web-search",
     "search-provider",
     "aggregation",
+    "fallback",
     "anysearch",
     "tinyfish",
-    "tavily"
+    "tavily",
+    "bundle"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chendefine/dsh-web-search-aggregation.git"
+  },
+  "homepage": "https://github.com/chendefine/dsh-web-search-aggregation#readme",
+  "bugs": {
+    "url": "https://github.com/chendefine/dsh-web-search-aggregation/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "disclosure": {
     "cloud": true,
     "network": [

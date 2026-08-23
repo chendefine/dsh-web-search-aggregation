@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a bug in the search provider, the queue/fallback behavior, or the settings card.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please fill in the fields below; a minimal reproduction is the fastest path to a fix.
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider kind
+      options:
+        - AnySearch
+        - Tavily
+        - TinyFish
+        - Multiple / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the full error message / per-attempt summary if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Queue order, enabled entries, attemptTimeoutMs, endpoint overrides (omit anything that identifies you; never paste API keys).
+  - type: input
+    id: version
+    attributes:
+      label: Plugin version
+      description: The `version` from package.json, or `npm view dsh-web-search-aggregation version`.
+    validations:
+      required: true
+  - type: input
+    id: dsh-version
+    attributes:
+      label: DeepSeek Harness version
+      description: e.g. the `@deepseek-ai/dsh-web` version the profile loads.
