@@ -10,7 +10,7 @@ export type AggregationLocaleKey =
   | 'title' | 'description'
   | 'attemptTimeout' | 'attemptTimeoutHint'
   | 'queueLabel' | 'queueHint'
-  | 'kindAnysearch' | 'kindTinyfish' | 'kindTavily' | 'kindBrave' | 'kindExa' | 'kindFirecrawl' | 'kindJina'
+  | 'kindAnysearch' | 'kindTinyfish' | 'kindTavily' | 'kindBrave' | 'kindExa' | 'kindFirecrawl' | 'kindJina' | 'kindSerpapi'
   | 'providerKind' | 'entryEnabled' | 'entryEnabledHint'
   | 'moveUp' | 'moveDown' | 'removeEntry'
   | 'keysLabel'
@@ -31,7 +31,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** English copy. */
 export const en: Record<AggregationLocaleKey, string> = {
   title: 'Aggregated web search',
-  description: 'Serves web search through a prioritized queue of AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl / Jina.',
+  description: 'Serves web search through a prioritized queue of AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl / Jina / SerpApi.',
   attemptTimeout: 'Per-provider attempt timeout (ms)',
   attemptTimeoutHint: 'One attempt is cut off after this long and the queue moves to the next provider or key. 1000–60000.',
   queueLabel: 'Provider queue',
@@ -43,6 +43,7 @@ export const en: Record<AggregationLocaleKey, string> = {
   kindExa: 'Exa',
   kindFirecrawl: 'Firecrawl',
   kindJina: 'Jina Search',
+  kindSerpapi: 'SerpApi',
   providerKind: 'Provider',
   entryEnabled: 'Enabled',
   entryEnabledHint: 'A disabled entry stays configured but is skipped.',
@@ -75,7 +76,7 @@ export const en: Record<AggregationLocaleKey, string> = {
 /** 中文文案。 */
 export const zh: Record<AggregationLocaleKey, string> = {
   title: '聚合网页搜索',
-  description: '按优先级队列依次调用 AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl / Jina 完成网页搜索',
+  description: '按优先级队列依次调用 AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl / Jina / SerpApi 完成网页搜索',
   attemptTimeout: '单个提供商尝试超时（毫秒）',
   attemptTimeoutHint: '一次调用超过该时长即被切断，队列转向下一个 key 或下一个提供商。范围 1000–60000。',
   queueLabel: '提供商队列',
@@ -87,6 +88,7 @@ export const zh: Record<AggregationLocaleKey, string> = {
   kindExa: 'Exa',
   kindFirecrawl: 'Firecrawl',
   kindJina: 'Jina Search',
+  kindSerpapi: 'SerpApi',
   providerKind: '提供商',
   entryEnabled: '启用',
   entryEnabledHint: '停用的条目保留配置但会被跳过。',

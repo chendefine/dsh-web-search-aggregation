@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-08-24
+
+### Added
+
+- **SerpApi** joins the queue as the eighth provider kind (`serpapi`, credential `SERPAPI_API_KEY` — same `,`-joined key-pool format), implemented against the current documented contract (serpapi.com/search-api, serpapi.com/organic-results, serpapi.com/api-status-and-error-codes): `GET https://serpapi.com/search.json?engine=google&q=…&api_key=…`. The key rides the URL because SerpApi's docs require it there — "not in HTTP headers, form data, or anywhere else" — so no Authorization header is sent. The documented `num` (default 10, up to 100) is clamped to 1–100 and sent ONLY when the request carries a result count: SerpApi notes `num`-bearing calls are historically more CAPTCHA-prone, so an unspecified count inherits the API default. Responses map `organic_results[]` (`link` → url, `title` → title, `snippet` → snippet, `date` → `publishedAt`); a body whose only payload is a top-level `error` string is a failure EVEN at HTTP 200 (e.g. Google returning nothing reports `status: "Success"` plus `"Google hasn't returned any results…"`) and fails the attempt so the queue falls through. A proxy base drops into the entry's `baseURL` override.
+- The shipped default queue (config `DEFAULT_QUEUE` and the `cordis.patch.yml` base layer) now enables all eight kinds; the settings card names the new kind (SerpApi, en + zh), shows its key-format placeholder (`xxxx…` — SerpApi keys are 64-hex, no prefix) and default endpoint base (`https://serpapi.com`), and queues it through the same `+` row.
+
+### Changed
+
+- Version bumped to 0.1.7; the upstream attribution `User-Agent` follows (`dsh-web-search-aggregation/0.1.7`).
+
 ## [0.1.6] - 2026-08-24
 
 ### Added

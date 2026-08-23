@@ -1,7 +1,7 @@
 {
   "name": "dsh-web-search-aggregation",
-  "version": "0.1.6",
-  "description": "Aggregated web-search provider for DeepSeek Harness: one prioritized queue over AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl / Jina, multiple API keys per entry, ordered fallback per request.",
+  "version": "0.1.7",
+  "description": "Aggregated web-search provider for DeepSeek Harness: one prioritized queue over AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl / Jina / SerpApi, multiple API keys per entry, ordered fallback per request.",
   "type": "module",
   "license": "MIT",
   "main": "lib/index.js",
@@ -72,6 +72,8 @@
     "firecrawl",
     "jina",
     "jina-ai",
+    "serpapi",
+    "google-search",
     "bundle"
   ],
   "repository": {
@@ -88,11 +90,11 @@
   "disclosure": {
     "cloud": true,
     "network": [
-      "search API endpoints configured per queue entry (default: api.anysearch.com, api.search.tinyfish.ai, api.tavily.com, api.search.brave.com, api.exa.ai, api.firecrawl.dev, s.jina.ai)"
+      "search API endpoints configured per queue entry (default: api.anysearch.com, api.search.tinyfish.ai, api.tavily.com, api.search.brave.com, api.exa.ai, api.firecrawl.dev, s.jina.ai, serpapi.com)"
     ],
     "offlineMode": false,
     "apiKeys": [
-      "user-supplied AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl / Jina keys, stored in the DSH credentials domain"
+      "user-supplied AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl / Jina / SerpApi keys, stored in the DSH credentials domain"
     ],
     "permissions": [
       "network:fetch (queries the search endpoints the user configures)"

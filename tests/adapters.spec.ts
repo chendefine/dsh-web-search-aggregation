@@ -7,6 +7,7 @@ import { braveAdapter, braveCount, braveURL, mapBraveResponse, mapBraveRow } fro
 import { exaAdapter, exaNumResults, mapExaResponse, mapExaRow } from '../src/adapters/exa.ts'
 import { firecrawlAdapter, firecrawlLimit, mapFirecrawlResponse, mapFirecrawlRow } from '../src/adapters/firecrawl.ts'
 import { jinaAdapter, jinaNum, mapJinaResponse, mapJinaRow } from '../src/adapters/jina.ts'
+import { mapSerpApiResponse, mapSerpApiRow, serpApiAdapter, serpapiNum, serpapiURL } from '../src/adapters/serpapi.ts'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' }, ...init })
@@ -356,6 +357,79 @@ describe('Jina adapter', () => {
     stubFetch({ data: null, code: 401, name: 'AuthenticationFailedError', status: 40102, message: 'Invalid API key, please get a new one from https://jina.ai' }, { status: 401 })
     await expect(jinaAdapter.search('q', undefined, 'k', 'https://s.jina.ai', undefined))
       .rejects.toThrowError(/Invalid API key, please get a new one/)
+  })
+})
+
+describe('SerpApi adapter', () => {
+  it('maps rows (link→url, snippet, date→publishedAt) and drops unusable links', () => {
+    expect(mapSerpApiRow({ position: 1, title: ' A ', link: 'https://a.test', snippet: ' s ', date: 'Sep 20, 2018' }))
+      .toEqual({ url: 'https://a.test', title: 'A', snippet: 's', publishedAt: 'Sep 20, 2018' })
+    expect(mapSerpApiRow({ title: 'X', link: 'not a url' })).toBeUndefined()
+    expect(mapSerpApiRow({ link: 'https://b.test' })).toEqual({ url: 'https://b.test' })
+  })
+
+  it('builds the query URL: base gets the /search.json path appended; num rides only when set', () => {
+    expect(serpapiURL('https://serpapi.com', 'a b&c', 'serp-key', 5))
+      .toBe('https://serpapi.com/search.json?engine=google&q=a+b%26c&api_key=serp-key&num=5')
+    // A base carrying a proxy prefix keeps it (same join rule as every adapter).
+    expect(serpapiURL('https://proxy.test/serpapi/', 'q', 'k', undefined))
+      .toBe('https://proxy.test/serpapi/search.json?engine=google&q=q&api_key=k')
+    expect(serpapiURL('https://serpapi.com', 'q', 'k', undefined))
+      .not.toContain('num=')
+    expect(() => serpapiURL('::not a url::', 'q', 'k', 5)).toThrowError(WebError)
+  })
+
+  it('clamps num into the 1–100 window', () => {
+    expect(serpapiNum(500)).toBe(100)
+    expect(serpapiNum(6)).toBe(6)
+    expect(serpapiNum(0)).toBe(1)
+    expect(serpapiNum(3.9)).toBe(3)
+  })
+
+  it('maps a response and requires an organic_results array', () => {
+    expect(mapSerpApiResponse({
+      search_metadata: { status: 'Success' },
+      organic_results: [{ position: 1, title: 'A', link: 'https://a.test' }],
+    })).toEqual({ sources: [{ url: 'https://a.test', title: 'A' }], truncated: false })
+    expect(() => mapSerpApiResponse({ search_metadata: { status: 'Success' } })).toThrowError(/no results array/)
+    expect(() => mapSerpApiResponse([])).toThrowError(/non-object response body/)
+  })
+
+  it('treats a top-level error string as a failure even at HTTP 200', () => {
+    // Google returning nothing: status Success + an error message, no array.
+    expect(() => mapSerpApiResponse({
+      search_metadata: { status: 'Success' },
+      search_information: { total_results: 0 },
+      error: "Google hasn't returned any results for this query.",
+    })).toThrowError(/Google hasn't returned any results/)
+    expect(() => mapSerpApiResponse({ error: 'Your account has run out of searches.' })).toThrowError(WebError)
+  })
+
+  it('GETs /search.json with engine/q/api_key query params and a clamped num', async () => {
+    const captured = stubFetch({ search_metadata: { status: 'Success' }, organic_results: [] })
+    await serpApiAdapter.search('hello', 500, 'serp-key', 'https://serpapi.com', undefined)
+    const request = captured[0]!
+    expect(request.init.method).toBe('GET')
+    expect(request.url).toBe('https://serpapi.com/search.json?engine=google&q=hello&api_key=serp-key&num=100')
+    const headers = request.init.headers as Record<string, string>
+    expect(headers.accept).toBe('application/json')
+    // The key rides the URL only: SerpApi rejects keys in headers or bodies.
+    expect(headers.authorization).toBeUndefined()
+    expect(headers['x-api-key']).toBeUndefined()
+  })
+
+  it('omits num when the request carries no count and rejects a keyless attempt', async () => {
+    const captured = stubFetch({ organic_results: [] })
+    await serpApiAdapter.search('q', undefined, 'k', 'https://serpapi.com', undefined)
+    expect(new URL(captured[0]!.url).searchParams.has('num')).toBe(false)
+    await expect(serpApiAdapter.search('q', undefined, undefined, 'https://serpapi.com', undefined))
+      .rejects.toThrowError(/requires an API key/)
+  })
+
+  it('surfaces a non-2xx error with the upstream message', async () => {
+    stubFetch({ error: 'Invalid API key. Your API key should be here: https://serpapi.com/manage-api-key' }, { status: 401 })
+    await expect(serpApiAdapter.search('q', undefined, 'k', 'https://serpapi.com', undefined))
+      .rejects.toThrowError(/Invalid API key/)
   })
 })
 

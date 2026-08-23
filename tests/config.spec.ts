@@ -13,6 +13,7 @@ describe('config defaults and resolution', () => {
         { kind: 'exa', enabled: true },
         { kind: 'firecrawl', enabled: true },
         { kind: 'jina', enabled: true },
+        { kind: 'serpapi', enabled: true },
       ],
       attemptTimeoutMs: 10000,
     })
@@ -66,6 +67,7 @@ describe('config defaults and resolution', () => {
       exa: 'EXA_API_KEY',
       firecrawl: 'FIRECRAWL_API_KEY',
       jina: 'JINA_API_KEY',
+      serpapi: 'SERPAPI_API_KEY',
     })
   })
 })

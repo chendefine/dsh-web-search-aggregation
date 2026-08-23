@@ -49,6 +49,8 @@ export {
   FIRECRAWL_MAX_LIMIT,
   JINA_DEFAULT_BASE_URL,
   JINA_MAX_NUM,
+  SERPAPI_DEFAULT_BASE_URL,
+  SERPAPI_MAX_NUM,
   TAVILY_DEFAULT_BASE_URL,
   TAVILY_DEFAULT_MAX_RESULTS,
   TINYFISH_DEFAULT_BASE_URL,
@@ -65,6 +67,10 @@ export {
   mapFirecrawlRow,
   mapJinaResponse,
   mapJinaRow,
+  mapSerpApiResponse,
+  mapSerpApiRow,
+  serpapiNum,
+  serpapiURL,
 } from './adapters/index.ts'
 export { AggregatedSearchProvider, AGGREGATED_PROVIDER_ID } from './provider.ts'
 export type {

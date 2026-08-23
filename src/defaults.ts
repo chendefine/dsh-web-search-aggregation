@@ -9,7 +9,7 @@
  */
 
 /** Provider kinds this package can drive, in the display order the card shows. */
-export const PROVIDER_KINDS = ['anysearch', 'tinyfish', 'tavily', 'brave', 'exa', 'firecrawl', 'jina'] as const
+export const PROVIDER_KINDS = ['anysearch', 'tinyfish', 'tavily', 'brave', 'exa', 'firecrawl', 'jina', 'serpapi'] as const
 
 /** One provider kind. */
 export type ProviderKind = typeof PROVIDER_KINDS[number]
@@ -26,6 +26,7 @@ export const KIND_CREDENTIAL_REF: Readonly<Record<ProviderKind, string>> = {
   exa: 'EXA_API_KEY',
   firecrawl: 'FIRECRAWL_API_KEY',
   jina: 'JINA_API_KEY',
+  serpapi: 'SERPAPI_API_KEY',
 }
 
 /**
@@ -40,6 +41,7 @@ export const KIND_KEY_PLACEHOLDER: Readonly<Record<ProviderKind, string>> = {
   exa: 'xxxx...',
   firecrawl: 'fc-xxxx...',
   jina: 'jina_xxxx...',
+  serpapi: 'xxxx...',
 }
 
 /**
@@ -55,6 +57,7 @@ export const KIND_DEFAULT_BASE_URL: Readonly<Record<ProviderKind, string>> = {
   exa: 'https://api.exa.ai',
   firecrawl: 'https://api.firecrawl.dev',
   jina: 'https://s.jina.ai',
+  serpapi: 'https://serpapi.com',
 }
 
 /** Lower bound for one attempt's timeout: below this, fallback is meaningless. */
