@@ -192,19 +192,21 @@ export function AggregatedCard(props: AggregatedCardProps) {
           : null}
       </SectionHead>
       <p className={css.hint}>{t('queueHint')}</p>
-      {state.entries.map((entry, index) => (
-        <EntryBlock
-          key={`${String(index)}-${entry.kind}`}
-          t={t}
-          entry={entry}
-          availableKinds={PROVIDER_KINDS.filter(kind => kind === entry.kind || !queuedKinds.has(kind))}
-          total={state.entries.length}
-          index={index}
-          disabled={disabled}
-          face={props}
-        />
-      ))}
-      <div className={css.chips}>
+      <div className={css.queue}>
+        {state.entries.map((entry, index) => (
+          <EntryBlock
+            key={`${String(index)}-${entry.kind}`}
+            t={t}
+            entry={entry}
+            availableKinds={PROVIDER_KINDS.filter(kind => kind === entry.kind || !queuedKinds.has(kind))}
+            total={state.entries.length}
+            index={index}
+            disabled={disabled}
+            face={props}
+          />
+        ))}
+      </div>
+      <div className={`${css.chips} ${css.addRow}`}>
         {PROVIDER_KINDS.map(kind => (
           <button
             key={kind}

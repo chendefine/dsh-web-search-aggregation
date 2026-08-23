@@ -19,9 +19,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          # pnpm 10 is the newest line that still supports Node 20 (pnpm 11
-          # requires >= 22.13); the lockfile (v9.0) is line-compatible.
-          version: 10
+          version: 11
 
       - uses: actions/setup-node@v4
         with:

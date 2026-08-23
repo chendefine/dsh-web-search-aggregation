@@ -229,6 +229,16 @@
 
 /* ── aggregated queue ─────────────────────────────────────────────────── */
 
+/* The queue's stacked entry boxes: vertical breathing room between one
+   provider block and the next, and from the section hint / add-buttons row
+   (the card body itself is a plain block with no gap). */
+.queue {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0 12px;
+}
+
 .entryBox {
   display: flex;
   flex-direction: column;
@@ -319,6 +329,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* The queue's trailing add-provider button row: the card's last control, so
+   it carries the bottom margin that keeps it off the save footer's divider
+   (a shipped .field would supply this rhythm with its own 12px padding). */
+.addRow {
+  margin: 0 0 12px;
 }
 
 .chip {
