@@ -227,6 +227,18 @@
   outline-offset: 1px;
 }
 
+/* The label sits right after the box (not stretched), so the inline hint
+   follows it on the same row instead of being pushed to the far edge. */
+.checkboxRow .label {
+  flex: none;
+}
+
+.checkboxHint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-tertiary);
+}
+
 /* ── aggregated queue ─────────────────────────────────────────────────── */
 
 /* The queue's stacked entry boxes: vertical breathing room between one

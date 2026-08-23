@@ -13,26 +13,27 @@
  */
 
 import z from '@deepseek-ai/schemastery'
+import {
+  DEFAULT_ATTEMPT_TIMEOUT_MS,
+  KIND_CREDENTIAL_REF,
+  MAX_ATTEMPT_TIMEOUT_MS,
+  MIN_ATTEMPT_TIMEOUT_MS,
+  PROVIDER_KINDS,
+} from './defaults.ts'
 import type { AggregatedSearchConfig, QueueEntry, SearchProviderKind } from './types.ts'
 
-/** Lower bound for one attempt's timeout: below this, fallback is meaningless. */
-export const MIN_ATTEMPT_TIMEOUT_MS = 1000
-
-/** Upper bound for one attempt's timeout: the tool-level budget is 60 s. */
-export const MAX_ATTEMPT_TIMEOUT_MS = 60000
-
-/** Default per-attempt timeout: leaves room for 3–4 fallbacks inside the tool budget. */
-export const DEFAULT_ATTEMPT_TIMEOUT_MS = 15000
-
+// Public-API names for the shared constants (single source: `defaults.ts`).
+export {
+  DEFAULT_ATTEMPT_TIMEOUT_MS,
+  MAX_ATTEMPT_TIMEOUT_MS,
+  MIN_ATTEMPT_TIMEOUT_MS,
+}
 /**
  * The single credential reference each kind reads — the conventional
- * environment name. Its value is the provider's keys joined by `,`.
+ * environment name. Its value is the provider's keys joined by `,`
+ * (single source `KIND_CREDENTIAL_REF` in `defaults.ts`).
  */
-export const DEFAULT_KEY_REF: Readonly<Record<SearchProviderKind, string>> = {
-  anysearch: 'ANYSEARCH_API_KEY',
-  tinyfish: 'TINYFISH_API_KEY',
-  tavily: 'TAVILY_API_KEY',
-}
+export { KIND_CREDENTIAL_REF as DEFAULT_KEY_REF }
 
 /** The shipped default queue: AnySearch (anonymous-capable) first, then the key-required kinds. */
 export const DEFAULT_QUEUE: readonly QueueEntry[] = [
@@ -47,7 +48,7 @@ export type ConfigInput = Partial<AggregatedSearchConfig>
 /** The schemastery schema shared by the composition entry and the settings section. */
 export const Config: z<AggregatedSearchConfig> = z.object({
   providers: z.array(z.object({
-    kind: z.union(['anysearch', 'tinyfish', 'tavily'] as const),
+    kind: z.union(PROVIDER_KINDS),
     enabled: z.boolean().default(true),
     baseURL: z.string(),
   })).default(DEFAULT_QUEUE.map(entry => ({ ...entry, baseURL: '' }))),

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-08-23
+
+### Changed
+
+- Configuration-card copy slimmed down: the card description is one line (按优先级队列依次调用 AnySearch / TinyFish / Tavily 完成网页搜索); the enable/disable hint now sits inline after the checkbox instead of on its own row; the API-keys hint and the Base URL hint are gone (the inputs are self-explanatory).
+- The API-keys input's placeholder now follows the entry's provider key format (`as_sk_xxxx…` / `sk-tinyfish-xxxx…` / `tvly-xxxx…`), and the Base URL input's placeholder is the provider's actual default endpoint — both swap live when the entry's provider changes.
+- `src/defaults.ts` is now the single source for the per-kind constants (provider kinds, credential refs, key-format placeholders, default base URLs) and the attempt-timeout bounds; the host adapters/config and the browser card both import them, replacing the hand-mirrored client copies.
+
+### Fixed
+
+- The upstream attribution `User-Agent` (`dsh-web-search-aggregation/0.1.0`) is bumped with the package version; it was stale since 0.1.0.
+
+## [0.1.2] - 2026-08-23
+
+### Fixed
+
+- Queue-entry layout spacing in the configuration card.
+- CI installs with pnpm 11.
+
 ## [0.1.1] - 2026-08-23
 
 ### Fixed

@@ -65,7 +65,7 @@ export function ValueField(props: {
   )
 }
 
-/** A staged checkbox: one entry's enabled toggle. */
+/** A staged checkbox: one entry's enabled toggle (hint inline after the label). */
 export function CheckboxField(props: {
   id: string
   label: string
@@ -85,8 +85,8 @@ export function CheckboxField(props: {
           onChange={(event) => { props.onEdit(event.target.checked) }}
         />
         <label className={css.label} htmlFor={props.id}>{props.label}</label>
+        <span className={css.checkboxHint}>{props.hint}</span>
       </div>
-      <p className={css.hint}>{props.hint}</p>
     </div>
   )
 }
@@ -152,7 +152,6 @@ export function KeysField(props: {
   view: KeysFieldView
   label: string
   placeholder: string
-  hint: string
   configuredLabel: string
   unsetLabel: string
   stagedLabel: string
@@ -243,7 +242,6 @@ export function KeysField(props: {
           +
         </button>
       </div>
-      <p className={css.hint}>{props.hint}</p>
     </div>
   )
 }

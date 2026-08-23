@@ -10,10 +10,11 @@
 import { WebError } from '@deepseek-ai/dsh-web'
 import type { WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
 import type { SearchAdapter } from './adapter.ts'
+import { KIND_DEFAULT_BASE_URL } from '../defaults.ts'
 import { jsonRequest } from './http.ts'
 
-/** Public Tavily API origin. */
-export const TAVILY_DEFAULT_BASE_URL = 'https://api.tavily.com'
+/** Public Tavily API origin (single source: `defaults.ts`). */
+export const TAVILY_DEFAULT_BASE_URL = KIND_DEFAULT_BASE_URL.tavily
 
 /** Result count sent when the request carries no `maxResults` (Tavily's own default is 5). */
 export const TAVILY_DEFAULT_MAX_RESULTS = 5

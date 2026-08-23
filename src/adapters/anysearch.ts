@@ -10,10 +10,11 @@
 import { WebError } from '@deepseek-ai/dsh-web'
 import type { WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
 import type { SearchAdapter } from './adapter.ts'
+import { KIND_DEFAULT_BASE_URL } from '../defaults.ts'
 import { jsonRequest, optionalText } from './http.ts'
 
-/** Public AnySearch API origin. */
-export const ANYSEARCH_DEFAULT_BASE_URL = 'https://api.anysearch.com'
+/** Public AnySearch API origin (single source: `defaults.ts`). */
+export const ANYSEARCH_DEFAULT_BASE_URL = KIND_DEFAULT_BASE_URL.anysearch
 
 /** One result row of AnySearch's `data.results[]`, as far as this adapter reads it. */
 interface AnySearchRow {

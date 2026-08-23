@@ -6,8 +6,13 @@
  * @module dsh-web-search-aggregation/types
  */
 
-/** Provider kinds this plugin can drive. One adapter each; see `adapters/`. */
-export type SearchProviderKind = 'anysearch' | 'tinyfish' | 'tavily'
+import type { ProviderKind as SearchProviderKind } from './defaults.ts'
+
+/**
+ * Provider kinds this plugin can drive. One adapter each; see `adapters/`.
+ * (Single source: the literal list lives in `defaults.ts`.)
+ */
+export type { SearchProviderKind }
 
 /**
  * One entry of the priority queue. Order inside `Config.providers` IS the

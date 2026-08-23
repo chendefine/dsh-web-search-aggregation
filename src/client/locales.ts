@@ -13,10 +13,10 @@ export type AggregationLocaleKey =
   | 'kindAnysearch' | 'kindTinyfish' | 'kindTavily'
   | 'providerKind' | 'entryEnabled' | 'entryEnabledHint'
   | 'moveUp' | 'moveDown' | 'removeEntry'
-  | 'keysLabel' | 'keysPlaceholder' | 'keysHint'
+  | 'keysLabel'
   | 'keyConfigured' | 'keyUnset' | 'keyStaged' | 'addKey' | 'removeKey'
   | 'kindAlreadyQueued' | 'duplicateKind'
-  | 'baseURL' | 'baseURLHint' | 'baseURLPlaceholder'
+  | 'baseURL'
   | 'overridden' | 'reset' | 'invalidText' | 'invalidNumber'
   | 'expand' | 'collapse' | 'unsaved' | 'readOnly' | 'saveFailed'
   | 'discard' | 'save' | 'saving'
@@ -31,7 +31,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** English copy. */
 export const en: Record<AggregationLocaleKey, string> = {
   title: 'Aggregated web search',
-  description: 'Serves web_search through a prioritized queue of AnySearch / TinyFish / Tavily; each provider can be queued once and reads one credential whose value holds its API keys joined by "," — the first provider that answers wins.',
+  description: 'Serves web search through a prioritized queue of AnySearch / TinyFish / Tavily.',
   attemptTimeout: 'Per-provider attempt timeout (ms)',
   attemptTimeoutHint: 'One attempt is cut off after this long and the queue moves to the next provider or key. 1000–60000.',
   queueLabel: 'Provider queue',
@@ -46,8 +46,6 @@ export const en: Record<AggregationLocaleKey, string> = {
   moveDown: 'Move down',
   removeEntry: 'Remove entry',
   keysLabel: 'API keys',
-  keysPlaceholder: 'tvly-… (one key, then + or Enter)',
-  keysHint: 'Add keys one at a time with + (Enter works too); each becomes a masked tag, and tag order is the order saved and used at runtime. Stored keys are never read back — saving replaces the whole list; close every tag and save to clear them.',
   keyConfigured: 'configured',
   keyUnset: 'not set',
   keyStaged: 'pending save',
@@ -56,8 +54,6 @@ export const en: Record<AggregationLocaleKey, string> = {
   kindAlreadyQueued: 'Already queued',
   duplicateKind: 'This provider is already queued; each provider can appear once.',
   baseURL: 'Endpoint base URL',
-  baseURLHint: 'Overrides the provider default; leave blank for the official API.',
-  baseURLPlaceholder: '(default endpoint)',
   overridden: 'overridden',
   reset: 'Reset',
   invalidText: 'Not a valid value.',
@@ -75,7 +71,7 @@ export const en: Record<AggregationLocaleKey, string> = {
 /** 中文文案。 */
 export const zh: Record<AggregationLocaleKey, string> = {
   title: '聚合网页搜索',
-  description: '按优先级队列依次调用 AnySearch / TinyFish / Tavily 完成网页搜索。每个提供商只能加入一次，读取唯一一个凭据，其值为多个 API key 用 "," 拼接的字符串；第一个成功者生效。',
+  description: '按优先级队列依次调用 AnySearch / TinyFish / Tavily 完成网页搜索',
   attemptTimeout: '单个提供商尝试超时（毫秒）',
   attemptTimeoutHint: '一次调用超过该时长即被切断，队列转向下一个 key 或下一个提供商。范围 1000–60000。',
   queueLabel: '提供商队列',
@@ -90,8 +86,6 @@ export const zh: Record<AggregationLocaleKey, string> = {
   moveDown: '下移',
   removeEntry: '删除条目',
   keysLabel: 'API keys',
-  keysPlaceholder: 'tvly-…（输入一个后点 + 或回车）',
-  keysHint: '逐个输入 key，点 +（或回车）加入，加入后以打码 tag 显示；tag 的顺序即保存与运行时读取的顺序。已存的 key 不回显，保存将整体替换；关闭全部 tag 再保存即清空。',
   keyConfigured: '已配置',
   keyUnset: '未设置',
   keyStaged: '待保存',
@@ -100,8 +94,6 @@ export const zh: Record<AggregationLocaleKey, string> = {
   kindAlreadyQueued: '已在队列中',
   duplicateKind: '该提供商已在队列中，每个提供商只能出现一次。',
   baseURL: '接口地址（Base URL）',
-  baseURLHint: '覆盖提供商默认地址；留空使用官方 API。',
-  baseURLPlaceholder: '（默认端点）',
   overridden: '已覆盖',
   reset: '重置',
   invalidText: '不是有效值。',

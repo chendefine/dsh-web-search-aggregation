@@ -14,7 +14,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import { PluginCard } from './PluginCard.tsx'
 import { CheckboxField, KeysField, SectionHead, SelectField, ValueField } from './fields.tsx'
 import type { AggregatedCardFace, AggregatedCardState, EntryView, ProviderKind } from './controller.ts'
-import { KIND_CREDENTIAL_REF, PROVIDER_KINDS } from './controller.ts'
+import { KIND_CREDENTIAL_REF, KIND_DEFAULT_BASE_URL, KIND_KEY_PLACEHOLDER, PROVIDER_KINDS } from './controller.ts'
 import type { AggregationLocaleKey } from './locales.ts'
 import css from './fields.module.css'
 
@@ -100,8 +100,7 @@ function EntryBlock(props: {
       <KeysField
         view={entry.keys}
         label={t('keysLabel')}
-        placeholder={t('keysPlaceholder')}
-        hint={t('keysHint')}
+        placeholder={KIND_KEY_PLACEHOLDER[entry.kind]}
         configuredLabel={t('keyConfigured')}
         unsetLabel={t('keyUnset')}
         stagedLabel={t('keyStaged')}
@@ -120,13 +119,12 @@ function EntryBlock(props: {
           id={`agg-entry-baseurl-${String(index)}`}
           className={css.keyFormInput}
           type="text"
-          placeholder={t('baseURLPlaceholder')}
+          placeholder={KIND_DEFAULT_BASE_URL[entry.kind]}
           value={entry.baseURL}
           disabled={disabled}
           spellCheck={false}
           onChange={(event) => { face.setBaseURL(index, event.target.value) }}
         />
-        <p className={css.hint}>{t('baseURLHint')}</p>
       </div>
     </div>
   )

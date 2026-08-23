@@ -19,8 +19,23 @@
 
 import type { IApiClient } from '@deepseek-ai/dsh-client-connection/client'
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import {
+    DEFAULT_ATTEMPT_TIMEOUT_MS,
+    KIND_CREDENTIAL_REF,
+    KIND_DEFAULT_BASE_URL,
+    KIND_KEY_PLACEHOLDER,
+    MAX_ATTEMPT_TIMEOUT_MS,
+    MIN_ATTEMPT_TIMEOUT_MS,
+    PROVIDER_KINDS,
+} from '../defaults.ts'
+import type { ProviderKind } from '../defaults.ts'
 import { formatApiKeys, maskApiKey, parseApiKeys } from '../keys.ts'
 import type { CardFieldState, CardShell, CredentialBadge, SnapshotStore } from './form.ts'
+
+// Re-exported for the card renderer: single source is `defaults.ts` (this
+// client bundle must not value-import the Host-side config/adapter modules).
+export { KIND_CREDENTIAL_REF, KIND_DEFAULT_BASE_URL, KIND_KEY_PLACEHOLDER, PROVIDER_KINDS }
+export type { ProviderKind }
 
 /**
  * Settings namespace this card edits. Spelled here rather than imported: a
@@ -32,33 +47,13 @@ export const WEB_SEARCH_AGGREGATION_NS = 'web-search-aggregation'
 export interface AggregatedSettingsSection {
   /** The prioritized queue; the resolved section always carries it. */
   providers?: Array<{
-    kind: 'anysearch' | 'tinyfish' | 'tavily'
+    kind: ProviderKind
     enabled: boolean
     baseURL?: string
   }>
   /** Per-attempt timeout (ms). */
   attemptTimeoutMs?: number
 }
-
-/** Provider kinds the card can add, in the display order the select shows. */
-export const PROVIDER_KINDS = ['anysearch', 'tinyfish', 'tavily'] as const
-
-/** One provider kind. */
-export type ProviderKind = typeof PROVIDER_KINDS[number]
-
-/**
- * The single credential reference each kind reads (client copy of the Host's
- * `DEFAULT_KEY_REF`): its value is the provider's keys joined by `,`.
- */
-export const KIND_CREDENTIAL_REF: Readonly<Record<ProviderKind, string>> = {
-  anysearch: 'ANYSEARCH_API_KEY',
-  tinyfish: 'TINYFISH_API_KEY',
-  tavily: 'TAVILY_API_KEY',
-}
-
-/** Accepted per-attempt timeout range, mirrored from the Host schema. */
-const TIMEOUT_MIN = 1000
-const TIMEOUT_MAX = 60000
 
 /** The editable form of one queue entry while staged. */
 export interface EntryDraft {
@@ -377,7 +372,7 @@ export class AggregatedCardController {
       } else if (landed && stagedTimeoutDraft !== undefined) {
         const trimmed = stagedTimeoutDraft.trim()
         const parsed = /^\d+$/.test(trimmed) ? Number(trimmed) : undefined
-        const timeout = parsed !== undefined && parsed >= TIMEOUT_MIN && parsed <= TIMEOUT_MAX ? parsed : undefined
+        const timeout = parsed !== undefined && parsed >= MIN_ATTEMPT_TIMEOUT_MS && parsed <= MAX_ATTEMPT_TIMEOUT_MS ? parsed : undefined
         if (timeout === undefined) await this.scope.unset('attemptTimeoutMs')
         else await this.scope.set('attemptTimeoutMs', timeout)
       }
@@ -464,7 +459,7 @@ export class AggregatedCardController {
     if (trimmed.length === 0) return undefined
     if (!/^\d+$/.test(trimmed)) return undefined
     const value = Number(trimmed)
-    return value >= TIMEOUT_MIN && value <= TIMEOUT_MAX ? value : undefined
+    return value >= MIN_ATTEMPT_TIMEOUT_MS && value <= MAX_ATTEMPT_TIMEOUT_MS ? value : undefined
   }
 
   /** Whether the staged timeout draft is present but not acceptable. */
@@ -474,7 +469,7 @@ export class AggregatedCardController {
     if (trimmed.length === 0) return false
     if (!/^\d+$/.test(trimmed)) return true
     const value = Number(trimmed)
-    return value < TIMEOUT_MIN || value > TIMEOUT_MAX
+    return value < MIN_ATTEMPT_TIMEOUT_MS || value > MAX_ATTEMPT_TIMEOUT_MS
   }
 
   /** The first reason the staged queue blocks a save, or undefined. */
@@ -520,12 +515,12 @@ export class AggregatedCardController {
     const snapshot = this.scope.getSnapshot()
     const invalid = this.invalidReason()
     const committed = this.section().attemptTimeoutMs
-    const baseTimeout = (snapshot.base as AggregatedSettingsSection | undefined)?.attemptTimeoutMs ?? 15000
+    const baseTimeout = (snapshot.base as AggregatedSettingsSection | undefined)?.attemptTimeoutMs ?? DEFAULT_ATTEMPT_TIMEOUT_MS
     const timeoutText = this.timeoutReset
       ? String(baseTimeout)
       : this.timeoutDraft !== undefined
         ? this.timeoutDraft
-        : committed === undefined ? String(15000) : String(committed)
+        : committed === undefined ? String(DEFAULT_ATTEMPT_TIMEOUT_MS) : String(committed)
     return {
       available: snapshot.status === 'ready',
       writable: snapshot.writable,

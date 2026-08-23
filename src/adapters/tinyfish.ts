@@ -10,10 +10,11 @@
 import { WebError } from '@deepseek-ai/dsh-web'
 import type { WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
 import type { SearchAdapter } from './adapter.ts'
+import { KIND_DEFAULT_BASE_URL } from '../defaults.ts'
 import { jsonRequest } from './http.ts'
 
-/** Public TinyFish Search API origin. */
-export const TINYFISH_DEFAULT_BASE_URL = 'https://api.search.tinyfish.ai'
+/** Public TinyFish Search API origin (single source: `defaults.ts`). */
+export const TINYFISH_DEFAULT_BASE_URL = KIND_DEFAULT_BASE_URL.tinyfish
 
 /** One result row of TinyFish's `results[]`, as far as this adapter reads it. */
 interface TinyFishRow {
