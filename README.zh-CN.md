@@ -2,15 +2,15 @@
 
 [English](./README.md) · [npm](https://www.npmjs.com/package/dsh-web-search-aggregation) · [GitHub](https://github.com/chendefine/dsh-web-search-aggregation)
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）双端插件：把内置 `web_search` 工具的搜索后端换成**一条按优先级排序的聚合队列（AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl / Jina / SerpApi）**——每个提供商可挂多个 API key 按轮转使用，任一次尝试失败自动落到下一个 key 或下一个提供商，第一个成功者生效。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）双端插件：把内置 `web_search` 工具的搜索后端换成**一条按优先级排序的聚合队列（AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl / Jina / SerpApi / Serper）**——每个提供商可挂多个 API key 按轮转使用，任一次尝试失败自动落到下一个 key 或下一个提供商，第一个成功者生效。
 
 ![npm](https://img.shields.io/npm/v/dsh-web-search-aggregation) ![license](https://img.shields.io/npm/l/dsh-web-search-aggregation) ![node](https://img.shields.io/node/v/dsh-web-search-aggregation) ![CI](https://img.shields.io/github/actions/workflow/status/chendefine/dsh-web-search-aggregation/ci.yml) ![stars](https://img.shields.io/github/stars/chendefine/dsh-web-search-aggregation)
 
 ## 特性
 
 - **优先级队列，有序回退** —— 每次请求自上而下逐个尝试：第一个返回结果的生效，失败的条目自动落到下一个。顺序在设置卡片中实时编辑；每个提供商最多入队一次。
-- **多 key 池 + 轮转** —— 每个提供商只读一个凭据（`ANYSEARCH_API_KEY` / `TINYFISH_API_KEY` / `TAVILY_API_KEY` / `BRAVE_SEARCH_API_KEY` / `EXA_API_KEY` / `FIRECRAWL_API_KEY` / `JINA_API_KEY` / `SERPAPI_API_KEY`），其值为该提供商全部 key 用 `,` 拼接。同一条目内的 key 按轮转顺序尝试（每成功一次前进一格），在池内分摊负载与配额。
-- **开箱即用** —— AnySearch 允许匿名访问，没配任何 key 时队列即可完成搜索。出厂默认只是启用全部八家——先后顺序完全由你在卡片里编排；需 key 的条目在凭据就位前只是跳过。
+- **多 key 池 + 轮转** —— 每个提供商只读一个凭据（`ANYSEARCH_API_KEY` / `TINYFISH_API_KEY` / `TAVILY_API_KEY` / `BRAVE_SEARCH_API_KEY` / `EXA_API_KEY` / `FIRECRAWL_API_KEY` / `JINA_API_KEY` / `SERPAPI_API_KEY` / `SERPER_API_KEY`），其值为该提供商全部 key 用 `,` 拼接。同一条目内的 key 按轮转顺序尝试（每成功一次前进一格），在池内分摊负载与配额。
+- **开箱即用** —— AnySearch 允许匿名访问，没配任何 key 时队列即可完成搜索。出厂默认只是启用全部九家——先后顺序完全由你在卡片里编排；需 key 的条目在凭据就位前只是跳过。
 - **预算受控** —— 每次尝试有独立超时（默认 10s，范围 1–60s），一个挂死的上游吃不掉工具层预算；60s 内仍可容纳 5–6 轮完整回退。
 - **失败可读** —— 全部失败时错误信息逐条列出每次尝试（`[2] tavily/TAVILY_API_KEY#1: 401 unauthorized; …`）。队列为空抛 `WEB_PROVIDER_UNAVAILABLE`；调用方取消立即抛 `WEB_ABORTED`。
 - **密钥卫生** —— key 明文绝不进日志、绝不出现在失败记录里（只引用 `REF` / `REF#N` 标签）；设置卡片以打码 tag 展示，已存的值永不回显。
@@ -27,7 +27,7 @@
 web_search (tool-web)
    └─ ctx.web.searchProvider = aggregated
         ├─ 队列（自上而下，首个成功者生效——顺序由用户编排）：
-        │     anysearch · tavily · tinyfish · brave · exa · firecrawl · jina · serpapi
+        │     anysearch · tavily · tinyfish · brave · exa · firecrawl · jina · serpapi · serper
         │       │   keys = 凭据值按 ',' 拆分          ← 每个提供商一个池
         │       │   无 key 的 AnySearch 条目允许匿名尝试
         │       └─ 每条目一个轮转游标（端点改动即重置）
@@ -35,7 +35,7 @@ web_search (tool-web)
         └─ 全部失败 → WEB_PROVIDER_ERROR + 逐次尝试摘要
 ```
 
-当前内置八个 adapter；接入下一个上游只需一个 adapter 模块加一行注册表。
+当前内置九个 adapter；接入下一个上游只需一个 adapter 模块加一行注册表。
 
 | kind | 鉴权 | 默认端点 | 备注 |
 | --- | --- | --- | --- |
@@ -47,11 +47,12 @@ web_search (tool-web)
 | `firecrawl` | Bearer | `https://api.firecrawl.dev/v2/search` | 发送 `limit`（1–100）；不带 `scrapeOptions`——纯搜索结果，无逐页抓取费用 |
 | `jina` | Bearer | `https://s.jina.ai` | `POST /` 携带 `{"q"}`；`X-Respond-With: no-content` 只取 SERP 条目（不逐页抓取）；`num`（1–20）仅在请求带条数时发送；`description` → 摘要、`publishedTime` → `publishedAt`；EU 镜像 `https://eu.s.jina.ai` |
 | `serpapi` | `api_key` 查询参数 | `https://serpapi.com/search.json` | `GET ?engine=google&q=…&api_key=…`——key 只放 URL（该 API 拒绝放在 header/请求体）；`num`（1–100）仅在请求带条数时发送（官方注明带 `num` 的调用更易触发 CAPTCHA）；`snippet` → 摘要、`date` → `publishedAt`；顶层 `error` 响应（即便 HTTP 200）按失败处理，队列落到下一家 |
+| `serper` | `X-API-KEY` 请求头 | `https://google.serper.dev/search` | `POST {"q": …}`，key 放 `X-API-KEY` 请求头；`num` 夹进官方 10–100 窗口、仅在请求带条数时发送（不足 10 向上取 10——seam 会按 `maxResults` 截断）；`link` → url、`snippet` → 摘要、`date`（Google 展示日期）→ `publishedAt`；非 2xx 的 `{"message": …}` 响应（如无 key 的 403）透出其消息 |
 
 ## 环境要求
 
 - DSH web profile（`dsh web`），Node.js ≥ 22.19——与 DSH 自身要求一致（`^22.19.0 || >=24`）。从 GitHub 源码安装会在安装时执行 `prepare` 构建，版本要求相同。
-- 至少一个上游可达：默认队列不配任何凭据即可用（AnySearch 匿名）；Tavily / TinyFish / Brave / Exa / Firecrawl / Jina / SerpApi 条目需配各自 API key 才会参与。
+- 至少一个上游可达：默认队列不配任何凭据即可用（AnySearch 匿名）；Tavily / TinyFish / Brave / Exa / Firecrawl / Jina / SerpApi / Serper 条目需配各自 API key 才会参与。
 
 ## 安装
 
@@ -79,7 +80,7 @@ bundle 插件加入 profile 层栈后需**重启 `dsh web`** 生效；卸载用 
 
 | 字段 | 默认 | 说明 |
 | --- | --- | --- |
-| `providers` | 八条启用条目——每种一家 | 优先级队列。每个条目：提供商（每种最多一次）、启用开关（停用条目保留配置但被跳过）、可选的端点 base URL（覆盖默认）。出厂顺序不代表任何含义，可随意编排。 |
+| `providers` | 九条启用条目——每种一家 | 优先级队列。每个条目：提供商（每种最多一次）、启用开关（停用条目保留配置但被跳过）、可选的端点 base URL（覆盖默认）。出厂顺序不代表任何含义，可随意编排。 |
 | `attemptTimeoutMs` | `10000` | 单次尝试超时（毫秒，1000–60000）。超时即切断，队列转向下一个 key 或下一个条目。 |
 
 API key 在每个条目上以**打码 tag** 管理：一次输入一个（`+` 或回车加入），tag 顺序即保存与运行时读取的顺序。已存的 key 不回显，保存将整体替换该池；关闭全部 tag 再保存即清空凭据。每个提供商的 key 存于唯一固定凭据：
@@ -94,6 +95,7 @@ API key 在每个条目上以**打码 tag** 管理：一次输入一个（`+` �
 | `FIRECRAWL_API_KEY` | Firecrawl | 是（条目可用前提） | 同上 |
 | `JINA_API_KEY` | Jina Search | 是——搜索 API 拒绝匿名调用 | 同上 |
 | `SERPAPI_API_KEY` | SerpApi | 是——该 API 拒绝无 key 调用 | 同上（key 为 64 位十六进制，无前缀） |
+| `SERPER_API_KEY` | Serper | 是——该 API 拒绝无 key 调用（403） | 同上（key 无前缀） |
 
 ### 与其他 provider 插件组合
 
@@ -114,7 +116,7 @@ bundle patch 会**整体替换** web seam 行的 config，因此最后应用的�
 ```sh
 pnpm install
 pnpm typecheck   # tsc --noEmit
-pnpm test        # vitest run（97 个单元测试，不联网）
+pnpm test        # vitest run（103 个单元测试，不联网）
 pnpm build       # tsc 声明 + tsdown（宿主 ESM + 客户端 module-registration bundle）
 ```
 
@@ -127,7 +129,7 @@ src/
 ├── provider.ts            # AggregatedSearchProvider：队列遍历、轮转、超时
 ├── keys.ts                # ',' 拼接 key 池词汇（解析/格式化/打码）
 ├── types.ts               # 队列条目、配置、单次尝试失败记录
-├── adapters/              # AnySearch / Tavily / TinyFish / Brave / Exa / Firecrawl / Jina / SerpApi adapter + 共享 HTTP
+├── adapters/              # AnySearch / Tavily / TinyFish / Brave / Exa / Firecrawl / Jina / SerpApi / Serper adapter + 共享 HTTP
 └── client/                # 浏览器半端：设置卡片、表单模型、多语言
 tests/                     # config、keys/adapters、provider、client-controller
 ```
@@ -136,7 +138,7 @@ tests/                     # config、keys/adapters、provider、client-controll
 
 ## 安全边界
 
-搜索词与 API key 只发往每个队列条目配置的端点（默认八家提供商的官方 API）。key 存于 DSH credentials 域——不落 settings 文件、不进日志、不回显客户端。失败记录与日志只引用打码标签（如 `TAVILY_API_KEY#2`），不含明文。除请求它的会话外，不保留任何结果数据。
+搜索词与 API key 只发往每个队列条目配置的端点（默认九家提供商的官方 API）。key 存于 DSH credentials 域——不落 settings 文件、不进日志、不回显客户端。失败记录与日志只引用打码标签（如 `TAVILY_API_KEY#2`），不含明文。除请求它的会话外，不保留任何结果数据。
 
 ## 许可证
 

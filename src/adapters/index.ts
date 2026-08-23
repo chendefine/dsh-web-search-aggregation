@@ -15,6 +15,7 @@ import { exaAdapter } from './exa.ts'
 import { firecrawlAdapter } from './firecrawl.ts'
 import { jinaAdapter } from './jina.ts'
 import { serpApiAdapter } from './serpapi.ts'
+import { serperAdapter } from './serper.ts'
 
 export type { SearchAdapter } from './adapter.ts'
 export {
@@ -74,6 +75,14 @@ export {
   serpapiNum,
   serpapiURL,
 } from './serpapi.ts'
+export {
+  SERPER_DEFAULT_BASE_URL,
+  SERPER_MAX_NUM,
+  SERPER_MIN_NUM,
+  mapSerperResponse,
+  mapSerperRow,
+  serperNum,
+} from './serper.ts'
 
 /** Every adapter this build carries, keyed by its provider kind. */
 export const ADAPTERS: Readonly<Record<SearchProviderKind, SearchAdapter>> = {
@@ -85,4 +94,5 @@ export const ADAPTERS: Readonly<Record<SearchProviderKind, SearchAdapter>> = {
   firecrawl: firecrawlAdapter,
   jina: jinaAdapter,
   serpapi: serpApiAdapter,
+  serper: serperAdapter,
 }

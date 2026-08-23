@@ -14,6 +14,7 @@ describe('config defaults and resolution', () => {
         { kind: 'firecrawl', enabled: true },
         { kind: 'jina', enabled: true },
         { kind: 'serpapi', enabled: true },
+        { kind: 'serper', enabled: true },
       ],
       attemptTimeoutMs: 10000,
     })
@@ -68,6 +69,7 @@ describe('config defaults and resolution', () => {
       firecrawl: 'FIRECRAWL_API_KEY',
       jina: 'JINA_API_KEY',
       serpapi: 'SERPAPI_API_KEY',
+      serper: 'SERPER_API_KEY',
     })
   })
 })

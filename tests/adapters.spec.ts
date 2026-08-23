@@ -8,6 +8,7 @@ import { exaAdapter, exaNumResults, mapExaResponse, mapExaRow } from '../src/ada
 import { firecrawlAdapter, firecrawlLimit, mapFirecrawlResponse, mapFirecrawlRow } from '../src/adapters/firecrawl.ts'
 import { jinaAdapter, jinaNum, mapJinaResponse, mapJinaRow } from '../src/adapters/jina.ts'
 import { mapSerpApiResponse, mapSerpApiRow, serpApiAdapter, serpapiNum, serpapiURL } from '../src/adapters/serpapi.ts'
+import { mapSerperResponse, mapSerperRow, serperAdapter, serperNum } from '../src/adapters/serper.ts'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' }, ...init })
@@ -430,6 +431,66 @@ describe('SerpApi adapter', () => {
     stubFetch({ error: 'Invalid API key. Your API key should be here: https://serpapi.com/manage-api-key' }, { status: 401 })
     await expect(serpApiAdapter.search('q', undefined, 'k', 'https://serpapi.com', undefined))
       .rejects.toThrowError(/Invalid API key/)
+  })
+})
+
+describe('Serper adapter', () => {
+  it('maps rows (link→url, snippet, date→publishedAt) and drops unusable links', () => {
+    expect(mapSerperRow({ position: 1, title: ' A ', link: 'https://a.test', snippet: ' s ', date: 'Mar 10, 2022' }))
+      .toEqual({ url: 'https://a.test', title: 'A', snippet: 's', publishedAt: 'Mar 10, 2022' })
+    expect(mapSerperRow({ title: 'X', link: 'not a url' })).toBeUndefined()
+    expect(mapSerperRow({ link: 'https://b.test' })).toEqual({ url: 'https://b.test' })
+  })
+
+  it('clamps num into the 10–100 window (a low count clamps UP; the seam truncates)', () => {
+    expect(serperNum(500)).toBe(100)
+    expect(serperNum(30)).toBe(30)
+    expect(serperNum(5)).toBe(10)
+    expect(serperNum(0)).toBe(10)
+    expect(serperNum(12.7)).toBe(12)
+  })
+
+  it('maps a response and requires an organic array', () => {
+    expect(mapSerperResponse({
+      searchParameters: { q: 'q', type: 'search', engine: 'google' },
+      organic: [{ position: 1, title: 'A', link: 'https://a.test' }],
+    })).toEqual({ sources: [{ url: 'https://a.test', title: 'A' }], truncated: false })
+    expect(mapSerperResponse({ organic: [] })).toEqual({ sources: [], truncated: false })
+    expect(() => mapSerperResponse({ searchParameters: { q: 'q' } })).toThrowError(/no results array/)
+    expect(() => mapSerperResponse([])).toThrowError(/non-object response body/)
+  })
+
+  it('POSTs /search with the X-API-KEY header and a clamped num', async () => {
+    const captured = stubFetch({ searchParameters: { q: 'hello' }, organic: [] })
+    await serperAdapter.search('hello', 500, 'serper-key', 'https://google.serper.dev', undefined)
+    const request = captured[0]!
+    expect(request.url).toBe('https://google.serper.dev/search')
+    expect(request.init.method).toBe('POST')
+    const headers = request.init.headers as Record<string, string>
+    expect(headers['x-api-key']).toBe('serper-key')
+    expect(headers['content-type']).toBe('application/json')
+    expect(headers.accept).toBe('application/json')
+    // The key rides the header only; Serper knows no bearer form.
+    expect(headers.authorization).toBeUndefined()
+    expect(JSON.parse(request.init.body as string)).toEqual({ q: 'hello', num: 100 })
+  })
+
+  it('omits num when the request carries no count and rejects a keyless attempt', async () => {
+    const captured = stubFetch({ organic: [] })
+    await serperAdapter.search('q', undefined, 'k', 'https://google.serper.dev', undefined)
+    expect(JSON.parse(captured[0]!.init.body as string)).toEqual({ q: 'q' })
+    await expect(serperAdapter.search('q', undefined, undefined, 'https://google.serper.dev', undefined))
+      .rejects.toThrowError(/requires an API key/)
+  })
+
+  it('keeps a proxy base prefix and surfaces a non-2xx error with the upstream message', async () => {
+    const captured = stubFetch({ organic: [] })
+    await serperAdapter.search('q', 5, 'k', 'https://proxy.test/serper/', undefined)
+    expect(captured[0]!.url).toBe('https://proxy.test/serper/search')
+    expect(JSON.parse(captured[0]!.init.body as string)).toEqual({ q: 'q', num: 10 })
+    stubFetch({ message: 'Unauthorized. Sign up for a free account.', statusCode: 403 }, { status: 403 })
+    await expect(serperAdapter.search('q', undefined, 'k', 'https://google.serper.dev', undefined))
+      .rejects.toThrowError(/Unauthorized\. Sign up for a free account\./)
   })
 })
 

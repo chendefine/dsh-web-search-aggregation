@@ -51,6 +51,9 @@ export {
   JINA_MAX_NUM,
   SERPAPI_DEFAULT_BASE_URL,
   SERPAPI_MAX_NUM,
+  SERPER_DEFAULT_BASE_URL,
+  SERPER_MAX_NUM,
+  SERPER_MIN_NUM,
   TAVILY_DEFAULT_BASE_URL,
   TAVILY_DEFAULT_MAX_RESULTS,
   TINYFISH_DEFAULT_BASE_URL,
@@ -71,6 +74,9 @@ export {
   mapSerpApiRow,
   serpapiNum,
   serpapiURL,
+  mapSerperResponse,
+  mapSerperRow,
+  serperNum,
 } from './adapters/index.ts'
 export { AggregatedSearchProvider, AGGREGATED_PROVIDER_ID } from './provider.ts'
 export type {

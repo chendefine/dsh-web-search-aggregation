@@ -49,6 +49,7 @@ export const DEFAULT_QUEUE: readonly QueueEntry[] = [
   { kind: 'firecrawl', enabled: true },
   { kind: 'jina', enabled: true },
   { kind: 'serpapi', enabled: true },
+  { kind: 'serper', enabled: true },
 ]
 
 /** Plugin config (all optional — the schema fills constant defaults). */

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Serper** joins the queue as the ninth provider kind (`serper`, credential `SERPER_API_KEY` — same `,`-joined key-pool format), implemented against the current documented contract (serper.dev's API playground; a faithful OpenAPI mirror at openapisearch.com/openapi/serper; keyless behavior verified live against the endpoint): `POST https://google.serper.dev/search` with the key in the `X-API-KEY` header (the API knows no bearer form) and the query as a JSON body (`{"q": …}`). The documented `num` ("Amount of results 10-100 (default 10)") is clamped into that 10–100 window and sent ONLY when the request carries a result count; an unspecified count inherits the API default and the parameter is not sent at all. A count below 10 clamps UP to the window floor, which never over-delivers: the web seam truncates `sources[]` to the request's `maxResults` after the provider returns. Responses map `organic[]` (`link` → url, `title` → title, `snippet` → snippet, `date` — Google's displayed date string, not normalized ISO — → `publishedAt`); a body without an `organic` array fails the attempt so the queue falls through, and non-2xx bodies of the API's `{"message": …, "statusCode": …}` shape (e.g. HTTP 403 `Unauthorized. Sign up for a free account.`) surface their message through the shared error path. A proxy base drops into the entry's `baseURL` override with the `/search` path appended like every POST adapter.
+- The shipped default queue (config `DEFAULT_QUEUE` and the `cordis.patch.yml` base layer) now enables all nine kinds; the settings card names the new kind (Serper, en + zh), shows its key-format placeholder (`xxxx…` — Serper keys carry no prefix) and default endpoint base (`https://google.serper.dev`), and queues it through the same `+` row.
+
+### Changed
+
+- Version bumped to 0.1.8; the upstream attribution `User-Agent` follows (`dsh-web-search-aggregation/0.1.8`).
+
 ## [0.1.7] - 2026-08-24
 
 ### Added
