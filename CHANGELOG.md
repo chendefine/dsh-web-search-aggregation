@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-08-24
+
+### Changed
+
+- The default per-attempt timeout (`attemptTimeoutMs`) drops from 15000 ms to 10000 ms, so five to six full fallbacks now fit inside the 60 s tool-level budget. Explicitly configured values (settings card or hand-written `settings.yaml`) are unaffected.
+- Version bumped to 0.1.5; the upstream attribution `User-Agent` follows (`dsh-web-search-aggregation/0.1.5`).
+
 ## [0.1.4] - 2026-08-24
 
 ### Added

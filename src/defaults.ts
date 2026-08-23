@@ -60,5 +60,5 @@ export const MIN_ATTEMPT_TIMEOUT_MS = 1000
 /** Upper bound for one attempt's timeout: the tool-level budget is 60 s. */
 export const MAX_ATTEMPT_TIMEOUT_MS = 60000
 
-/** Default per-attempt timeout: leaves room for 3–4 fallbacks inside the tool budget. */
-export const DEFAULT_ATTEMPT_TIMEOUT_MS = 15000
+/** Default per-attempt timeout: leaves room for 5–6 fallbacks inside the tool budget. */
+export const DEFAULT_ATTEMPT_TIMEOUT_MS = 10000

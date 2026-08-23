@@ -76,7 +76,7 @@ export function defaultSection(): ScopeOptions {
         { kind: 'anysearch', enabled: true },
         { kind: 'tavily', enabled: true },
       ],
-      attemptTimeoutMs: 15000,
+      attemptTimeoutMs: 10000,
     },
   }
 }
@@ -99,7 +99,7 @@ describe('AggregatedCardController', () => {
     expect(state.entries[0]?.keys.ref).toBe('ANYSEARCH_API_KEY')
     expect(state.entries[1]?.keys.ref).toBe('TAVILY_API_KEY')
     expect(state.entries[0]?.keys.staged).toBe(false)
-    expect(state.timeout.text).toBe('15000')
+    expect(state.timeout.text).toBe('10000')
     expect(state.dirty).toBe(false)
   })
 
@@ -258,7 +258,7 @@ describe('AggregatedCardController', () => {
 
   it('blocks saving on a hand-edited duplicate provider kind', async () => {
     const duped = new FakeScope({
-      base: { providers: [{ kind: 'tavily', enabled: true }, { kind: 'tavily', enabled: false }], attemptTimeoutMs: 15000 },
+      base: { providers: [{ kind: 'tavily', enabled: true }, { kind: 'tavily', enabled: false }], attemptTimeoutMs: 10000 },
     })
     const api = fakeCredentials()
     const controller = new AggregatedCardController(duped as never, api)
@@ -301,7 +301,7 @@ describe('AggregatedCardController', () => {
 
     face.resetTimeout()
     state = face.hooks.aggregatedCard.getSnapshot()
-    expect(state.timeout.text).toBe('15000')
+    expect(state.timeout.text).toBe('10000')
     expect(state.timeout.overridden).toBe(true)
     face.save()
     await settled()

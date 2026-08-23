@@ -13,7 +13,7 @@ describe('config defaults and resolution', () => {
         { kind: 'exa', enabled: true },
         { kind: 'firecrawl', enabled: true },
       ],
-      attemptTimeoutMs: 15000,
+      attemptTimeoutMs: 10000,
     })
   })
 

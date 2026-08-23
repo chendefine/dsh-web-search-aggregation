@@ -42,7 +42,7 @@ function formatMessage(format: string, args: unknown[]): string {
 }
 
 function queue(...providers: QueueEntry[]): AggregatedSearchConfig {
-  return { providers, attemptTimeoutMs: 15000 }
+  return { providers, attemptTimeoutMs: 10000 }
 }
 
 /** One fetch route decision: match by URL prefix. */

@@ -11,7 +11,7 @@ An aggregated web-search provider for [DeepSeek Harness](https://github.com/deep
 - **Prioritized queue, ordered fallback** — entries are tried top-down per request; the first one that returns wins, and a failed entry falls through to the next. Order is edited live in the settings card; each provider kind can be queued at most once.
 - **Multi-key pools with rotation** — every provider reads exactly one credential (`ANYSEARCH_API_KEY` / `TINYFISH_API_KEY` / `TAVILY_API_KEY` / `BRAVE_SEARCH_API_KEY` / `EXA_API_KEY` / `FIRECRAWL_API_KEY`) whose value holds all of that provider's keys joined by `,`. Within one entry the keys are tried in rotating order (round-robin per successful request), spreading load and quota across the pool.
 - **Works out of the box** — AnySearch allows anonymous access, so the queue answers searches before any key is configured. The shipped defaults simply enable all six kinds — the order is whatever you arrange in the card; the key-required entries fall through until their credential is set.
-- **Budget-aware** — each attempt gets its own deadline (default 15 s, 1–60 s), so one hung upstream cannot eat the tool-level budget; three to four full fallbacks still fit inside 60 s.
+- **Budget-aware** — each attempt gets its own deadline (default 10 s, 1–60 s), so one hung upstream cannot eat the tool-level budget; five to six full fallbacks still fit inside 60 s.
 - **Transparent failures** — when every attempt fails, the error reports each one (`[2] tavily/TAVILY_API_KEY#1: 401 unauthorized; …`). An empty queue raises `WEB_PROVIDER_UNAVAILABLE`; caller cancellation raises `WEB_ABORTED` immediately.
 - **Secret hygiene** — key literals are never logged and never appear in failure records (which cite `REF` / `REF#N` labels only); the settings card shows keys as masked tags and never echoes stored values back.
 - **Live configuration** — the settings card (设置 → 插件 → 插件配置 → *聚合网页搜索 / Aggregated web search*) edits the queue, keys, endpoints, and timeout; a committed change reaches the next search without a restart.
@@ -31,7 +31,7 @@ web_search (tool-web)
         │       │   keys = credential split on ','   ← pool per provider
         │       │   anonymous attempt allowed for key-less AnySearch
         │       └─ rotation cursor per entry (resets when the endpoint changes)
-        ├─ per attempt: adapter request under its own deadline (default 15 s)
+        ├─ per attempt: adapter request under its own deadline (default 10 s)
         └─ all failed → WEB_PROVIDER_ERROR with a per-attempt summary
 ```
 
@@ -78,7 +78,7 @@ The settings card (设置 → 插件 → 插件配置 → *Aggregated web search
 | Field | Default | Description |
 | --- | --- | --- |
 | `providers` | six enabled entries — one per kind | The prioritized queue. Each entry: provider kind (each kind at most once), enabled toggle (a disabled entry stays configured but is skipped), and an optional endpoint base URL overriding the adapter's default. The shipped order carries no meaning; arrange it however you like. |
-| `attemptTimeoutMs` | `15000` | Per-attempt deadline in ms (1000–60000). One attempt is cut off after this long and the queue moves to the next key or entry. |
+| `attemptTimeoutMs` | `10000` | Per-attempt deadline in ms (1000–60000). One attempt is cut off after this long and the queue moves to the next key or entry. |
 
 API keys are managed on each entry as **masked tags**: add one key at a time (`+` or Enter), reorder by dragging tags off/on — tag order is the order a save writes and the runtime reads. Stored keys are never read back; a save replaces the whole pool, and closing every tag before saving clears the credential. Each provider's keys live in one fixed credential:
 
