@@ -9,7 +9,7 @@
  */
 
 /** Provider kinds this package can drive, in the display order the card shows. */
-export const PROVIDER_KINDS = ['anysearch', 'tinyfish', 'tavily'] as const
+export const PROVIDER_KINDS = ['anysearch', 'tinyfish', 'tavily', 'brave', 'exa', 'firecrawl'] as const
 
 /** One provider kind. */
 export type ProviderKind = typeof PROVIDER_KINDS[number]
@@ -22,6 +22,9 @@ export const KIND_CREDENTIAL_REF: Readonly<Record<ProviderKind, string>> = {
   anysearch: 'ANYSEARCH_API_KEY',
   tinyfish: 'TINYFISH_API_KEY',
   tavily: 'TAVILY_API_KEY',
+  brave: 'BRAVE_SEARCH_API_KEY',
+  exa: 'EXA_API_KEY',
+  firecrawl: 'FIRECRAWL_API_KEY',
 }
 
 /**
@@ -32,6 +35,9 @@ export const KIND_KEY_PLACEHOLDER: Readonly<Record<ProviderKind, string>> = {
   anysearch: 'as_sk_xxxx...',
   tinyfish: 'sk-tinyfish-xxxx...',
   tavily: 'tvly-xxxx...',
+  brave: 'BSA_xxxx...',
+  exa: 'xxxx...',
+  firecrawl: 'fc-xxxx...',
 }
 
 /**
@@ -43,6 +49,9 @@ export const KIND_DEFAULT_BASE_URL: Readonly<Record<ProviderKind, string>> = {
   anysearch: 'https://api.anysearch.com',
   tinyfish: 'https://api.search.tinyfish.ai',
   tavily: 'https://api.tavily.com',
+  brave: 'https://api.search.brave.com',
+  exa: 'https://api.exa.ai',
+  firecrawl: 'https://api.firecrawl.dev',
 }
 
 /** Lower bound for one attempt's timeout: below this, fallback is meaningless. */

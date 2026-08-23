@@ -9,6 +9,9 @@ describe('config defaults and resolution', () => {
         { kind: 'anysearch', enabled: true },
         { kind: 'tavily', enabled: true },
         { kind: 'tinyfish', enabled: true },
+        { kind: 'brave', enabled: true },
+        { kind: 'exa', enabled: true },
+        { kind: 'firecrawl', enabled: true },
       ],
       attemptTimeoutMs: 15000,
     })
@@ -58,6 +61,9 @@ describe('config defaults and resolution', () => {
       anysearch: 'ANYSEARCH_API_KEY',
       tinyfish: 'TINYFISH_API_KEY',
       tavily: 'TAVILY_API_KEY',
+      brave: 'BRAVE_SEARCH_API_KEY',
+      exa: 'EXA_API_KEY',
+      firecrawl: 'FIRECRAWL_API_KEY',
     })
   })
 })

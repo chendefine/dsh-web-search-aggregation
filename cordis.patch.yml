@@ -14,7 +14,8 @@
 #    Settings → Plugins → Plugin configuration); the composition entry below
 #    carries the shipped default queue as the section's base layer. API keys
 #    are NOT part of the entry: each kind reads exactly one fixed credential
-#    (ANYSEARCH_API_KEY / TINYFISH_API_KEY / TAVILY_API_KEY) whose value
+#    (ANYSEARCH_API_KEY / TINYFISH_API_KEY / TAVILY_API_KEY /
+#    BRAVE_SEARCH_API_KEY / EXA_API_KEY / FIRECRAWL_API_KEY) whose value
 #    holds all of that provider's keys joined by ','.
 #
 # Bundle layers load at the next profile start; the settings section hot-reloads.
@@ -32,5 +33,11 @@
           - kind: tavily
             enabled: true
           - kind: tinyfish
+            enabled: true
+          - kind: brave
+            enabled: true
+          - kind: exa
+            enabled: true
+          - kind: firecrawl
             enabled: true
         attemptTimeoutMs: 15000

@@ -35,11 +35,18 @@ export {
  */
 export { KIND_CREDENTIAL_REF as DEFAULT_KEY_REF }
 
-/** The shipped default queue: AnySearch (anonymous-capable) first, then the key-required kinds. */
+/**
+ * The shipped default queue: one enabled entry per kind — AnySearch sits
+ * first only so the queue serves with no keys configured; beyond that the
+ * order carries no meaning and is the user's to arrange in the card.
+ */
 export const DEFAULT_QUEUE: readonly QueueEntry[] = [
   { kind: 'anysearch', enabled: true },
   { kind: 'tavily', enabled: true },
   { kind: 'tinyfish', enabled: true },
+  { kind: 'brave', enabled: true },
+  { kind: 'exa', enabled: true },
+  { kind: 'firecrawl', enabled: true },
 ]
 
 /** Plugin config (all optional — the schema fills constant defaults). */

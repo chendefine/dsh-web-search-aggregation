@@ -29,6 +29,9 @@ const KIND_KEY: Record<ProviderKind, AggregationLocaleKey> = {
   anysearch: 'kindAnysearch',
   tinyfish: 'kindTinyfish',
   tavily: 'kindTavily',
+  brave: 'kindBrave',
+  exa: 'kindExa',
+  firecrawl: 'kindFirecrawl',
 }
 
 /** The card's actions as the entry sub-component consumes them. */

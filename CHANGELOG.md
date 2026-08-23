@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-08-24
+
+### Added
+
+- Three new queue providers, each behind its own adapter and single fixed credential (same `,`-joined key-pool format): **Brave Search** (`brave`, `BRAVE_SEARCH_API_KEY` — `GET api.search.brave.com/res/v1/web/search` with `X-Subscription-Token`, count clamped to the API's 1–20 window, `text_decorations=false` for clean snippets, `page_age` → `publishedAt`), **Exa** (`exa`, `EXA_API_KEY` — `POST api.exa.ai/search` with Bearer per current docs, `numResults` clamped to 1–100, `contents: {highlights: true}` so each row's first highlight rides the snippet), and **Firecrawl** (`firecrawl`, `FIRECRAWL_API_KEY` — `POST api.firecrawl.dev/v2/search` with Bearer, `limit` clamped to 1–100, no `scrapeOptions` so a search costs no per-page scrape credits; `success: false` envelopes map to `WEB_PROVIDER_ERROR`).
+- The shipped default queue (config `DEFAULT_QUEUE` and the `cordis.patch.yml` base layer) now enables all six kinds. The queue's order is the user's to arrange in the card, so the defaults state membership — one enabled entry per kind — and not priority; the key-required entries fall through until their credential is set.
+- The settings card names the three new kinds (Brave Search / Exa / Firecrawl, en + zh), shows their key-format placeholders (`xxxx…` / `fc-xxxx…`) and default endpoint bases, and queues them through the same `+` row.
+
+### Changed
+
+- Version bumped to 0.1.4; the upstream attribution `User-Agent` follows (`dsh-web-search-aggregation/0.1.4`).
+
+### Fixed
+
+- The adapter test helper's fetch stub passed the *request* init as the *response* init, so a stubbed non-2xx status was silently ignored (the AnySearch 429 test passed via the business-error path instead); the stub now applies the intended response status, and the Exa 401 test exercises the real HTTP path.
+- Network-level fetch failures are now diagnosable: undici's opaque `TypeError: fetch failed` is unwrapped and the underlying cause (errno code + message, e.g. `getaddrinfo EAI_AGAIN api.search.brave.com [EAI_AGAIN]`) rides the failure record instead of being dropped.
+- A transient network failure (embedded-DNS blip like `EAI_AGAIN`/`ENOTFOUND`, connection reset, dial timeout) no longer kills the attempt outright: `jsonRequest` retries once after a 150 ms backoff, inside the same attempt budget (the caller's signal still bounds the loop, so worst-case timing is unchanged). Deterministic failures — HTTP status errors, malformed bodies, aborts — are never retried.
+- **Brave requests hit the wrong URL** — `braveURL` set the query parameters but never appended the `/res/v1/web/search` path, so a default-base request went to the apex `https://api.search.brave.com/?q=…`, which answers `301` to the dashboard site; with `redirect: 'error'` that surfaced as `TypeError: fetch failed: unexpected redirect`. The path is now appended to the base exactly like the POST adapters append theirs, so a proxy-prefixed base keeps its prefix.
+
 ## [0.1.3] - 2026-08-23
 
 ### Changed

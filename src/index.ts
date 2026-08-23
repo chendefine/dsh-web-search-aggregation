@@ -38,9 +38,28 @@ export type { ConfigInput } from './config.ts'
 export {
   ADAPTERS,
   ANYSEARCH_DEFAULT_BASE_URL,
+  BRAVE_DEFAULT_BASE_URL,
+  BRAVE_DEFAULT_COUNT,
+  BRAVE_MAX_COUNT,
+  EXA_DEFAULT_BASE_URL,
+  EXA_DEFAULT_NUM_RESULTS,
+  EXA_MAX_NUM_RESULTS,
+  FIRECRAWL_DEFAULT_BASE_URL,
+  FIRECRAWL_DEFAULT_LIMIT,
+  FIRECRAWL_MAX_LIMIT,
   TAVILY_DEFAULT_BASE_URL,
   TAVILY_DEFAULT_MAX_RESULTS,
   TINYFISH_DEFAULT_BASE_URL,
+  braveCount,
+  braveURL,
+  exaNumResults,
+  firecrawlLimit,
+  mapBraveResponse,
+  mapBraveRow,
+  mapExaResponse,
+  mapExaRow,
+  mapFirecrawlResponse,
+  mapFirecrawlRow,
 } from './adapters/index.ts'
 export { AggregatedSearchProvider, AGGREGATED_PROVIDER_ID } from './provider.ts'
 export type {

@@ -2,15 +2,15 @@
 
 [中文](./README.zh-CN.md) · [npm](https://www.npmjs.com/package/dsh-web-search-aggregation) · [GitHub](https://github.com/chendefine/dsh-web-search-aggregation)
 
-An aggregated web-search provider for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH): the built-in `web_search` tool is served through **one prioritized queue over AnySearch / TinyFish / Tavily** — each provider can hold a pool of API keys that rotate per request, every failed attempt falls through to the next provider or key, and the first success wins.
+An aggregated web-search provider for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH): the built-in `web_search` tool is served through **one prioritized queue over AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl** — each provider can hold a pool of API keys that rotate per request, every failed attempt falls through to the next provider or key, and the first success wins.
 
 ![npm](https://img.shields.io/npm/v/dsh-web-search-aggregation) ![license](https://img.shields.io/npm/l/dsh-web-search-aggregation) ![node](https://img.shields.io/node/v/dsh-web-search-aggregation) ![CI](https://img.shields.io/github/actions/workflow/status/chendefine/dsh-web-search-aggregation/ci.yml) ![stars](https://img.shields.io/github/stars/chendefine/dsh-web-search-aggregation)
 
 ## Features
 
 - **Prioritized queue, ordered fallback** — entries are tried top-down per request; the first one that returns wins, and a failed entry falls through to the next. Order is edited live in the settings card; each provider kind can be queued at most once.
-- **Multi-key pools with rotation** — every provider reads exactly one credential (`ANYSEARCH_API_KEY` / `TINYFISH_API_KEY` / `TAVILY_API_KEY`) whose value holds all of that provider's keys joined by `,`. Within one entry the keys are tried in rotating order (round-robin per successful request), spreading load and quota across the pool.
-- **Works out of the box** — AnySearch allows anonymous access, so the shipped default queue (`anysearch → tavily → tinyfish`) answers searches before any key is configured. Tavily / TinyFish entries simply fall through until their credential is set.
+- **Multi-key pools with rotation** — every provider reads exactly one credential (`ANYSEARCH_API_KEY` / `TINYFISH_API_KEY` / `TAVILY_API_KEY` / `BRAVE_SEARCH_API_KEY` / `EXA_API_KEY` / `FIRECRAWL_API_KEY`) whose value holds all of that provider's keys joined by `,`. Within one entry the keys are tried in rotating order (round-robin per successful request), spreading load and quota across the pool.
+- **Works out of the box** — AnySearch allows anonymous access, so the queue answers searches before any key is configured. The shipped defaults simply enable all six kinds — the order is whatever you arrange in the card; the key-required entries fall through until their credential is set.
 - **Budget-aware** — each attempt gets its own deadline (default 15 s, 1–60 s), so one hung upstream cannot eat the tool-level budget; three to four full fallbacks still fit inside 60 s.
 - **Transparent failures** — when every attempt fails, the error reports each one (`[2] tavily/TAVILY_API_KEY#1: 401 unauthorized; …`). An empty queue raises `WEB_PROVIDER_UNAVAILABLE`; caller cancellation raises `WEB_ABORTED` immediately.
 - **Secret hygiene** — key literals are never logged and never appear in failure records (which cite `REF` / `REF#N` labels only); the settings card shows keys as masked tags and never echoes stored values back.
@@ -26,8 +26,8 @@ An aggregated web-search provider for [DeepSeek Harness](https://github.com/deep
 ```
 web_search (tool-web)
    └─ ctx.web.searchProvider = aggregated
-        ├─ queue (top-down, first success wins):
-        │     anysearch → tavily → tinyfish          ← order edited live
+        ├─ queue (top-down, first success wins — order user-arranged):
+        │     anysearch · tavily · tinyfish · brave · exa · firecrawl
         │       │   keys = credential split on ','   ← pool per provider
         │       │   anonymous attempt allowed for key-less AnySearch
         │       └─ rotation cursor per entry (resets when the endpoint changes)
@@ -35,18 +35,21 @@ web_search (tool-web)
         └─ all failed → WEB_PROVIDER_ERROR with a per-attempt summary
 ```
 
-Three adapters ship today; a fourth upstream is one adapter module plus one registry row.
+Six adapters ship today; another upstream is one adapter module plus one registry row.
 
 | Kind | Auth | Default endpoint | Notes |
 | --- | --- | --- | --- |
 | `anysearch` | Bearer, optional | `https://api.anysearch.com/v1/search` | anonymous access allowed; `data.results[]` envelope |
 | `tavily` | Bearer | `https://api.tavily.com/search` | sends `max_results`; the generated answer rides `content` |
 | `tinyfish` | `X-API-Key` | `https://api.search.tinyfish.ai` | `GET ?query=…`; no count control, the seam's `maxResults` truncates |
+| `brave` | `X-Subscription-Token` | `https://api.search.brave.com/res/v1/web/search` | `GET ?q=…&count=…` (count clamped to 1–20, decorations off); `page_age` → `publishedAt` |
+| `exa` | Bearer | `https://api.exa.ai/search` | sends `numResults` (1–100) and `contents.highlights`; the first highlight is the snippet |
+| `firecrawl` | Bearer | `https://api.firecrawl.dev/v2/search` | sends `limit` (1–100); no `scrapeOptions` — plain results, no per-page scrape cost |
 
 ## Requirements
 
 - DSH web profile (`dsh web`), Node.js ≥ 22.19 — the same floor as DSH itself (`^22.19.0 || >=24`). Source installs from GitHub run the `prepare` build, which needs the same range.
-- At least one reachable upstream: the default queue works with no credentials (AnySearch anonymous); Tavily / TinyFish entries need their API keys to contribute.
+- At least one reachable upstream: the default queue works with no credentials (AnySearch anonymous); Tavily / TinyFish / Brave / Exa / Firecrawl entries need their API keys to contribute.
 
 ## Installation
 
@@ -70,9 +73,11 @@ After a bundle plugin is added to the profile layer stack, **restart `dsh web`**
 
 The settings card (设置 → 插件 → 插件配置 → *Aggregated web search*) edits the `web-search-aggregation` settings section live:
 
+![plugin configuration card](./search-plugin-config.png)
+
 | Field | Default | Description |
 | --- | --- | --- |
-| `providers` | `anysearch → tavily → tinyfish` | The prioritized queue. Each entry: provider kind (each kind at most once), enabled toggle (a disabled entry stays configured but is skipped), and an optional endpoint base URL overriding the adapter's default. |
+| `providers` | six enabled entries — one per kind | The prioritized queue. Each entry: provider kind (each kind at most once), enabled toggle (a disabled entry stays configured but is skipped), and an optional endpoint base URL overriding the adapter's default. The shipped order carries no meaning; arrange it however you like. |
 | `attemptTimeoutMs` | `15000` | Per-attempt deadline in ms (1000–60000). One attempt is cut off after this long and the queue moves to the next key or entry. |
 
 API keys are managed on each entry as **masked tags**: add one key at a time (`+` or Enter), reorder by dragging tags off/on — tag order is the order a save writes and the runtime reads. Stored keys are never read back; a save replaces the whole pool, and closing every tag before saving clears the credential. Each provider's keys live in one fixed credential:
@@ -82,6 +87,9 @@ API keys are managed on each entry as **masked tags**: add one key at a time (`+
 | `ANYSEARCH_API_KEY` | AnySearch | no — anonymous access works | one key bare, or several joined by `,` |
 | `TAVILY_API_KEY` | Tavily | yes, for the entry to serve | same pool format |
 | `TINYFISH_API_KEY` | TinyFish | yes, for the entry to serve | same pool format |
+| `BRAVE_SEARCH_API_KEY` | Brave Search | yes, for the entry to serve | same pool format |
+| `EXA_API_KEY` | Exa | yes, for the entry to serve | same pool format |
+| `FIRECRAWL_API_KEY` | Firecrawl | yes, for the entry to serve | same pool format |
 
 ### Combining with other provider plugins
 
@@ -102,7 +110,7 @@ A bundle patch replaces the web seam row's **whole** config, so the layer applie
 ```sh
 pnpm install
 pnpm typecheck   # tsc --noEmit
-pnpm test        # vitest run (61 unit tests, no network)
+pnpm test        # vitest run (82 unit tests, no network)
 pnpm build       # tsc declarations + tsdown (host ESM + client module-registration bundle)
 ```
 
@@ -115,7 +123,7 @@ src/
 ├── provider.ts            # AggregatedSearchProvider: queue walk, rotation, deadlines
 ├── keys.ts                # ','-joined key-pool vocabulary (parse/format/mask)
 ├── types.ts               # queue entry, config, per-attempt failure records
-├── adapters/              # AnySearch / Tavily / TinyFish adapters + shared HTTP
+├── adapters/              # AnySearch / Tavily / TinyFish / Brave / Exa / Firecrawl adapters + shared HTTP
 └── client/                # browser half: settings card, form model, locales
 tests/                     # config, keys/adapters, provider, client-controller
 ```
@@ -124,7 +132,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development and release workflo
 
 ## Security
 
-Search queries and API keys leave the machine only toward the endpoints configured per queue entry (the three providers' official APIs by default). Keys are stored in the DSH credentials domain — never in the settings file, never logged, never echoed back to the client. Failure records and logs cite masked references (`TAVILY_API_KEY#2`), not literals. No result data is retained beyond the session that requested it.
+Search queries and API keys leave the machine only toward the endpoints configured per queue entry (the six providers' official APIs by default). Keys are stored in the DSH credentials domain — never in the settings file, never logged, never echoed back to the client. Failure records and logs cite masked references (`TAVILY_API_KEY#2`), not literals. No result data is retained beyond the session that requested it.
 
 ## License
 

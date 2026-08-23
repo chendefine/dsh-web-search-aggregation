@@ -1,7 +1,7 @@
 {
   "name": "dsh-web-search-aggregation",
-  "version": "0.1.3",
-  "description": "Aggregated web-search provider for DeepSeek Harness: one prioritized queue over AnySearch / TinyFish / Tavily, multiple API keys per entry, ordered fallback per request.",
+  "version": "0.1.4",
+  "description": "Aggregated web-search provider for DeepSeek Harness: one prioritized queue over AnySearch / TinyFish / Tavily / Brave / Exa / Firecrawl, multiple API keys per entry, ordered fallback per request.",
   "entry": {
     "name": "dsh-web-search-aggregation",
     "inject": []
