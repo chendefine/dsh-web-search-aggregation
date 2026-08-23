@@ -6,6 +6,7 @@ import { tavilyAdapter, mapTavilyResponse, mapTavilyRow } from '../src/adapters/
 import { braveAdapter, braveCount, braveURL, mapBraveResponse, mapBraveRow } from '../src/adapters/brave.ts'
 import { exaAdapter, exaNumResults, mapExaResponse, mapExaRow } from '../src/adapters/exa.ts'
 import { firecrawlAdapter, firecrawlLimit, mapFirecrawlResponse, mapFirecrawlRow } from '../src/adapters/firecrawl.ts'
+import { jinaAdapter, jinaNum, mapJinaResponse, mapJinaRow } from '../src/adapters/jina.ts'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' }, ...init })
@@ -297,6 +298,64 @@ describe('Firecrawl adapter', () => {
     expect(JSON.parse(captured[0]!.init.body as string).limit).toBe(10)
     await expect(firecrawlAdapter.search('q', undefined, undefined, 'https://api.firecrawl.dev', undefined))
       .rejects.toThrowError(/requires an API key/)
+  })
+})
+
+describe('Jina adapter', () => {
+  it('maps rows (description→snippet, publishedTime→publishedAt) and drops unusable URLs', () => {
+    expect(mapJinaRow({ title: 'A', url: 'https://a.test', description: 'd', publishedTime: '2026-01-02' }))
+      .toEqual({ url: 'https://a.test', title: 'A', snippet: 'd', publishedAt: '2026-01-02' })
+    expect(mapJinaRow({ url: '::bad::' })).toBeUndefined()
+    expect(mapJinaRow({ url: 'https://b.test' })).toEqual({ url: 'https://b.test' })
+  })
+
+  it('clamps num into the 1–20 window', () => {
+    expect(jinaNum(500)).toBe(20)
+    expect(jinaNum(6)).toBe(6)
+    expect(jinaNum(0)).toBe(1)
+    expect(jinaNum(3.9)).toBe(3)
+  })
+
+  it('maps the code/data envelope and tolerates a bare array; requires results either way', () => {
+    expect(mapJinaResponse({ code: 200, status: 200, data: [{ url: 'https://a.test', title: 'A' }] }))
+      .toEqual({ sources: [{ url: 'https://a.test', title: 'A' }], truncated: false })
+    expect(mapJinaResponse([{ url: 'https://b.test', description: 's' }]))
+      .toEqual({ sources: [{ url: 'https://b.test', snippet: 's' }], truncated: false })
+    expect(() => mapJinaResponse({ code: 200, data: null })).toThrowError(/no results array/)
+    expect(() => mapJinaResponse({ code: 200 })).toThrowError(/no results array/)
+  })
+
+  it('POSTs the base root with bearer, SERP-only headers, and a clamped num', async () => {
+    const captured = stubFetch({ code: 200, status: 200, data: [] })
+    await jinaAdapter.search('hello', 50, 'jina-key', 'https://s.jina.ai', undefined)
+    const request = captured[0]!
+    expect(request.url).toBe('https://s.jina.ai/')
+    expect(request.init.method).toBe('POST')
+    const headers = request.init.headers as Record<string, string>
+    expect(headers.authorization).toBe('Bearer jina-key')
+    expect(headers['x-respond-with']).toBe('no-content')
+    expect(headers['x-retain-images']).toBe('none')
+    expect(headers.accept).toBe('application/json')
+    expect(JSON.parse(request.init.body as string)).toEqual({ q: 'hello', num: 20 })
+  })
+
+  it('omits num when the request carries no count and keeps a proxy/EU base prefix', async () => {
+    const captured = stubFetch({ code: 200, status: 200, data: [] })
+    await jinaAdapter.search('q', undefined, 'k', 'https://eu.s.jina.ai/', undefined)
+    const request = captured[0]!
+    expect(request.url).toBe('https://eu.s.jina.ai/')
+    expect(JSON.parse(request.init.body as string)).toEqual({ q: 'q' })
+  })
+
+  it('rejects a keyless attempt', async () => {
+    await expect(jinaAdapter.search('q', undefined, undefined, 'https://s.jina.ai', undefined))
+      .rejects.toThrowError(/requires an API key/)
+  })
+
+  it('surfaces a non-2xx error with the upstream message', async () => {
+    stubFetch({ data: null, code: 401, name: 'AuthenticationFailedError', status: 40102, message: 'Invalid API key, please get a new one from https://jina.ai' }, { status: 401 })
+    await expect(jinaAdapter.search('q', undefined, 'k', 'https://s.jina.ai', undefined))
+      .rejects.toThrowError(/Invalid API key, please get a new one/)
   })
 })
 

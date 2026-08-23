@@ -13,6 +13,7 @@ import { tavilyAdapter } from './tavily.ts'
 import { braveAdapter } from './brave.ts'
 import { exaAdapter } from './exa.ts'
 import { firecrawlAdapter } from './firecrawl.ts'
+import { jinaAdapter } from './jina.ts'
 
 export type { SearchAdapter } from './adapter.ts'
 export {
@@ -57,6 +58,13 @@ export {
   mapFirecrawlResponse,
   mapFirecrawlRow,
 } from './firecrawl.ts'
+export {
+  JINA_DEFAULT_BASE_URL,
+  JINA_MAX_NUM,
+  jinaNum,
+  mapJinaResponse,
+  mapJinaRow,
+} from './jina.ts'
 
 /** Every adapter this build carries, keyed by its provider kind. */
 export const ADAPTERS: Readonly<Record<SearchProviderKind, SearchAdapter>> = {
@@ -66,4 +74,5 @@ export const ADAPTERS: Readonly<Record<SearchProviderKind, SearchAdapter>> = {
   brave: braveAdapter,
   exa: exaAdapter,
   firecrawl: firecrawlAdapter,
+  jina: jinaAdapter,
 }

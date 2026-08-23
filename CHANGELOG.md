@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-08-24
+
+### Added
+
+- **Jina Search** joins the queue as the seventh provider kind (`jina`, credential `JINA_API_KEY` — same `,`-joined key-pool format), implemented against the current Search Foundation contract (docs.jina.ai; live spec at `s.jina.ai/openapi.json`): `POST https://s.jina.ai/` with a Bearer key and the query as a JSON body (`{"q": …}`). The documented `X-Respond-With: no-content` keeps an attempt SERP-only — each row returns title / url / description / publishedTime with no per-page fetch latency or token cost (`X-Retain-Images: none` too); `description` → snippet and `publishedTime` → `publishedAt`. `num` is clamped to the API's 1–20 window and sent ONLY when the request carries a result count (Jina's docs warn it adds latency otherwise; an unspecified count inherits the API default of 10). The JSON envelope (`{code, status, data: […]}`) is mapped defensively — a bare array is accepted too — and the EU-residency mirror (`https://eu.s.jina.ai`) or a proxy base drops into the entry's `baseURL` override. Anonymous search is rejected by the API (401 `AuthenticationRequiredError`, verified live), so the entry requires its credential and falls through until it is set.
+- The shipped default queue (config `DEFAULT_QUEUE` and the `cordis.patch.yml` base layer) now enables all seven kinds; the settings card names the new kind (Jina Search, en + zh), shows its key-format placeholder (`jina_xxxx…`) and default endpoint base (`https://s.jina.ai`), and queues it through the same `+` row.
+
+### Changed
+
+- Version bumped to 0.1.6; the upstream attribution `User-Agent` follows (`dsh-web-search-aggregation/0.1.6`).
+
 ## [0.1.5] - 2026-08-24
 
 ### Changed

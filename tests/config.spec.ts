@@ -12,6 +12,7 @@ describe('config defaults and resolution', () => {
         { kind: 'brave', enabled: true },
         { kind: 'exa', enabled: true },
         { kind: 'firecrawl', enabled: true },
+        { kind: 'jina', enabled: true },
       ],
       attemptTimeoutMs: 10000,
     })
@@ -64,6 +65,7 @@ describe('config defaults and resolution', () => {
       brave: 'BRAVE_SEARCH_API_KEY',
       exa: 'EXA_API_KEY',
       firecrawl: 'FIRECRAWL_API_KEY',
+      jina: 'JINA_API_KEY',
     })
   })
 })

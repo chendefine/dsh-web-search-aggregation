@@ -32,6 +32,7 @@ const KIND_KEY: Record<ProviderKind, AggregationLocaleKey> = {
   brave: 'kindBrave',
   exa: 'kindExa',
   firecrawl: 'kindFirecrawl',
+  jina: 'kindJina',
 }
 
 /** The card's actions as the entry sub-component consumes them. */
