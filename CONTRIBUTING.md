@@ -20,7 +20,7 @@ The host half is a [Cordis](https://github.com/shigma/cordis) function plugin re
 
 ## Development
 
-Requirements: Node.js ≥ 20, pnpm ≥ 10.
+Requirements: Node.js ≥ 22.19 (the same floor as DSH itself; the tsdown build step also needs it), pnpm ≥ 10.
 
 ```sh
 pnpm install

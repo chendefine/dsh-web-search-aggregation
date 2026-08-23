@@ -45,7 +45,7 @@ web_search (tool-web)
 
 ## 环境要求
 
-- DSH web profile（`dsh web`），Node.js ≥ 20。
+- DSH web profile（`dsh web`），Node.js ≥ 22.19——与 DSH 自身要求一致（`^22.19.0 || >=24`）。从 GitHub 源码安装会在安装时执行 `prepare` 构建，版本要求相同。
 - 至少一个上游可达：默认队列不配任何凭据即可用（AnySearch 匿名）；Tavily / TinyFish 条目需配各自 API key 才会参与。
 
 ## 安装

@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-search-aggregation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Aggregated web-search provider for DeepSeek Harness: one prioritized queue over AnySearch / TinyFish / Tavily, multiple API keys per entry, ordered fallback per request.",
   "type": "module",
   "license": "MIT",
@@ -18,7 +18,7 @@
     }
   },
   "engines": {
-    "node": ">=20"
+    "node": "^22.19.0 || >=24.0.0"
   },
   "files": [
     "lib/index.js",
@@ -126,6 +126,7 @@
     "react-dom": "^18.3.1",
     "tsdown": "^0.22.2",
     "typescript": "^5.8.0",
+    "unrun": "^0.3.1",
     "vitest": "^4.1.8"
   }
 }

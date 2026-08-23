@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-23
+
+### Fixed
+
+- Source installs (`dsh plugin add github:…` and CI) no longer fail during the `prepare` build: `unrun` is now a devDependency. tsdown's `auto` config loader needs it to read `tsdown.config.ts` on runtimes without native TypeScript support; registry installs were unaffected (they ship prebuilt `lib/`).
+- `engines.node` now states DSH's own floor (`^22.19.0 || >=24.0.0`) instead of a not-actually-supported `>=20` — tsdown's build needs Node ≥ 22, and DSH hosts always run ≥ 22.19. The CI matrix (Node 22 / 24) mirrors it.
+
 ## [0.1.0] - 2026-08-23
 
 ### Added

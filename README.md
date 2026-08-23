@@ -45,7 +45,7 @@ Three adapters ship today; a fourth upstream is one adapter module plus one regi
 
 ## Requirements
 
-- DSH web profile (`dsh web`), Node.js ≥ 20.
+- DSH web profile (`dsh web`), Node.js ≥ 22.19 — the same floor as DSH itself (`^22.19.0 || >=24`). Source installs from GitHub run the `prepare` build, which needs the same range.
 - At least one reachable upstream: the default queue works with no credentials (AnySearch anonymous); Tavily / TinyFish entries need their API keys to contribute.
 
 ## Installation

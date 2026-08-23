@@ -10,13 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 22, 24]
+        # DSH itself requires Node ^22.19 || >=24; building from source
+        # (tsdown) additionally needs the Promise.withResolvers era, so the
+        # matrix mirrors DSH's own support range.
+        node-version: [22, 24]
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 11
+          # pnpm 10 is the newest line that still supports Node 20 (pnpm 11
+          # requires >= 22.13); the lockfile (v9.0) is line-compatible.
+          version: 10
 
       - uses: actions/setup-node@v4
         with:
