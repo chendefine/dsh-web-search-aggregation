@@ -1,0 +1,35 @@
+# dsh-web-search-aggregation bundle layer.
+#
+# 1. Pin the web seam's search provider to this plugin's aggregated provider
+#    (id 'aggregated'). A patch replaces the targeted row's WHOLE config, so
+#    the deployed fetch selection is restated verbatim — losing it would break
+#    web_fetch (the playwright provider from dsh-web-fetch-playwright's layer).
+# 2. Insert this package's host plugin row. The queue itself lives in the
+#    'web-search-aggregation' settings section (editable live from
+#    Settings → Plugins → Plugin configuration); the composition entry below
+#    carries the shipped default queue as the section's base layer.
+#
+# Bundle layers load at the next profile start; the settings section hot-reloads.
+- id: web
+  config:
+    searchProvider: aggregated
+    fetchProvider: playwright
+
+- insert:
+    - id: web-search-aggregation
+      name: dsh-web-search-aggregation
+      config:
+        providers:
+          - kind: anysearch
+            enabled: true
+            apiKeyRefs:
+              - ANYSEARCH_API_KEY
+          - kind: tavily
+            enabled: true
+            apiKeyRefs:
+              - TAVILY_API_KEY
+          - kind: tinyfish
+            enabled: true
+            apiKeyRefs:
+              - TINYFISH_API_KEY
+        attemptTimeoutMs: 15000
