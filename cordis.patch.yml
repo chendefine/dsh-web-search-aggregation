@@ -9,7 +9,24 @@
 #    applied LAST (the profile's own cordis.patch.yml wins over every bundle
 #    layer); when this plugin's layer is last, an unconfigured fetchProvider
 #    resolves to the single registered fetch provider automatically.
-# 2. Insert this package's host plugin row. The queue itself lives in the
+# 2. Take over the shipped search slot: disable the built-in
+#    '@deepseek-ai/dsh-web-search-deepseek' row so its 'deepseek-official'
+#    provider never registers (its settings card disappears with it). This
+#    disable is order-stable: a patch replaces a row's config, not its other
+#    keys, and no shipped layer re-enables this row; users can restore the
+#    built-in provider from their own profile layer with `disabled: false`.
+#    A custom profile without the dsh-base row just logs a loader warning
+#    ("patch: entry web-search-deepseek not found") and continues.
+#
+#    ORDERING CAVEAT: this disable makes the `searchProvider: aggregated` pin
+#    above LOAD-BEARING. A later bundle layer that re-states the shipped
+#    selection (dsh-web-fetch-playwright's does — it must restate
+#    `searchProvider` because patches replace whole configs) would leave the
+#    seam configured for 'deepseek-official' with that provider unloaded, and
+#    every web_search would fail with WEB_PROVIDER_CONFIGURED_MISSING. In such
+#    a deployment, order this plugin LAST in dsh.profile.bundles or re-pin
+#    both keys in the profile's own cordis.patch.yml.
+# 3. Insert this package's host plugin row. The queue itself lives in the
 #    'web-search-aggregation' settings section (editable live from
 #    Settings → Plugins → Plugin configuration); the composition entry below
 #    carries the shipped default queue as the section's base layer. API keys
@@ -24,12 +41,17 @@
   config:
     searchProvider: aggregated
 
+- id: web-search-deepseek
+  disabled: true
+
 - insert:
     - id: web-search-aggregation
       name: dsh-web-search-aggregation
       config:
         providers:
           - kind: anysearch
+            enabled: true
+          - kind: firecrawl
             enabled: true
           - kind: tavily
             enabled: true
@@ -38,8 +60,6 @@
           - kind: brave
             enabled: true
           - kind: exa
-            enabled: true
-          - kind: firecrawl
             enabled: true
           - kind: jina
             enabled: true
