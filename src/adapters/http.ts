@@ -10,7 +10,7 @@
 import { WebError } from '@deepseek-ai/dsh-web'
 
 /** Attribution header sent on every upstream request. Bump with the package version. */
-const USER_AGENT = 'dsh-web-search-aggregation/0.1.8'
+const USER_AGENT = 'dsh-web-search-aggregation/0.1.10'
 
 /** Cap on an upstream error body kept for diagnostics. */
 const MAX_ERROR_CHARS = 300

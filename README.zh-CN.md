@@ -27,7 +27,7 @@
 web_search (tool-web)
    └─ ctx.web.searchProvider = aggregated
         ├─ 队列（自上而下，首个成功者生效——顺序由用户编排）：
-        │     anysearch · tavily · tinyfish · brave · exa · firecrawl · jina · serpapi · serper
+        │     anysearch · firecrawl · tavily · tinyfish · brave · exa · jina · serpapi · serper
         │       │   keys = 凭据值按 ',' 拆分          ← 每个提供商一个池
         │       │   无 key 的 AnySearch 条目允许匿名尝试
         │       └─ 每条目一个轮转游标（端点改动即重置）

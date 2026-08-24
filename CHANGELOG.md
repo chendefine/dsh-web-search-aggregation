@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-08-24
+
+### Fixed
+
+- The shipped default queue is one order again: v0.1.9 moved Firecrawl to the front of the `cordis.patch.yml` base layer but missed `DEFAULT_QUEUE` in `src/config.ts` (the schema default that fills the settings section on a fresh install), leaving Firecrawl mid-queue there. The code default now matches the patch layer — anysearch, then Firecrawl, then Tavily onward — and the config test locks the order.
+- The upstream attribution `User-Agent` is un-stuck from 0.1.8: it now follows the package version again (`dsh-web-search-aggregation/0.1.10`), per the constant's own "bump with the package version" contract.
+- `CHANGELOG.md` catches up on bookkeeping: the 0.1.8 notes had been left under [Unreleased], and 0.1.9 shipped with no entry at all. Both are backfilled below.
+
+## [0.1.9] - 2026-08-24
+
+### Changed
+
+- The `cordis.patch.yml` composition layer now disables the built-in `@deepseek-ai/dsh-web-search-deepseek` row (`disabled: true`), so its `deepseek-official` provider never registers and its settings card disappears when this plugin's layer applies. The disable is order-stable (a patch replaces a row's config, not its other keys, and no shipped layer re-enables it) and reversible from a profile layer with `disabled: false`; a custom profile without the dsh-base row just logs a loader warning and continues. This makes the `searchProvider: aggregated` pin load-bearing: a later bundle layer restating the shipped selection (dsh-web-fetch-playwright's does) would point the seam at the unloaded provider and fail every web_search with `WEB_PROVIDER_CONFIGURED_MISSING` — order this plugin last in `dsh.profile.bundles` or re-pin both keys in the profile's own `cordis.patch.yml` in such a deployment (ordering caveat documented in the patch header).
+- Default queue reorder in the patch layer: **Firecrawl** moves up to the second slot (right after AnySearch), ahead of Tavily.
+
+## [0.1.8] - 2026-08-24
+
 ### Added
 
 - **Serper** joins the queue as the ninth provider kind (`serper`, credential `SERPER_API_KEY` — same `,`-joined key-pool format), implemented against the current documented contract (serper.dev's API playground; a faithful OpenAPI mirror at openapisearch.com/openapi/serper; keyless behavior verified live against the endpoint): `POST https://google.serper.dev/search` with the key in the `X-API-KEY` header (the API knows no bearer form) and the query as a JSON body (`{"q": …}`). The documented `num` ("Amount of results 10-100 (default 10)") is clamped into that 10–100 window and sent ONLY when the request carries a result count; an unspecified count inherits the API default and the parameter is not sent at all. A count below 10 clamps UP to the window floor, which never over-delivers: the web seam truncates `sources[]` to the request's `maxResults` after the provider returns. Responses map `organic[]` (`link` → url, `title` → title, `snippet` → snippet, `date` — Google's displayed date string, not normalized ISO — → `publishedAt`); a body without an `organic` array fails the attempt so the queue falls through, and non-2xx bodies of the API's `{"message": …, "statusCode": …}` shape (e.g. HTTP 403 `Unauthorized. Sign up for a free account.`) surface their message through the shared error path. A proxy base drops into the entry's `baseURL` override with the `/search` path appended like every POST adapter.

@@ -42,11 +42,11 @@ export { KIND_CREDENTIAL_REF as DEFAULT_KEY_REF }
  */
 export const DEFAULT_QUEUE: readonly QueueEntry[] = [
   { kind: 'anysearch', enabled: true },
+  { kind: 'firecrawl', enabled: true },
   { kind: 'tavily', enabled: true },
   { kind: 'tinyfish', enabled: true },
   { kind: 'brave', enabled: true },
   { kind: 'exa', enabled: true },
-  { kind: 'firecrawl', enabled: true },
   { kind: 'jina', enabled: true },
   { kind: 'serpapi', enabled: true },
   { kind: 'serper', enabled: true },

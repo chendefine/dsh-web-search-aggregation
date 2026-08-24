@@ -27,7 +27,7 @@ An aggregated web-search provider for [DeepSeek Harness](https://github.com/deep
 web_search (tool-web)
    └─ ctx.web.searchProvider = aggregated
         ├─ queue (top-down, first success wins — order user-arranged):
-        │     anysearch · tavily · tinyfish · brave · exa · firecrawl · jina · serpapi · serper
+        │     anysearch · firecrawl · tavily · tinyfish · brave · exa · jina · serpapi · serper
         │       │   keys = credential split on ','   ← pool per provider
         │       │   anonymous attempt allowed for key-less AnySearch
         │       └─ rotation cursor per entry (resets when the endpoint changes)
